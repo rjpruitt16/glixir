@@ -1,0 +1,21 @@
+name = "genserver"
+version = "0.1.0"
+description = "Easy interop with Elixir GenServers and Agents from Gleam"
+
+licences = ["MIT"]
+repository = { type = "github", user = "rjpruitt16", repo = "genserver" }
+#links = [
+#  { title = "Sponsor", href = "https://github.com/sponsors/your-username" },
+#  { title = "Examples", href = "https://github.com/your-username/gleam-elixir-interop-example" },
+#]
+
+gleam = ">= 1.0.0"
+#For a full reference of all the available options, you can have a look at
+# https://glieam.run/writing-gleam/gleam-toml/.
+
+[dependencies]
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_erlang = ">= 1.0.0 and < 2.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"
