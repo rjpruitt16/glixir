@@ -9,7 +9,7 @@ repository = { type = "github", user = "rjpruitt16", repo = "genserver" }
 #  { title = "Examples", href = "https://github.com/your-username/gleam-elixir-interop-example" },
 #]
 
-gleam = ">= 1.0.0"
+gleam = ">= 1.7.0"
 #For a full reference of all the available options, you can have a look at
 # https://glieam.run/writing-gleam/gleam-toml/.
 
