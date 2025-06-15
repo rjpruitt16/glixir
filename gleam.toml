@@ -1,5 +1,5 @@
 name = "genserver"
-version = "0.1.0"
+version = "0.1.1"
 description = "Easy interop with Elixir GenServers and Agents from Gleam"
 
 licences = ["MIT"]
