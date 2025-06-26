@@ -7,24 +7,11 @@ import gleam/dynamic.{type Dynamic}
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
 import gleam/int
-import gleam/list
 import gleam/string
 
 /// Opaque type representing a supervisor process
 pub opaque type Supervisor {
   Supervisor(pid: Pid)
-}
-
-pub type Started(data) {
-  Started(
-    /// The process identifier of the started actor. This can be used to
-    /// monitor the actor, make it exit, or anything else you can do with a
-    /// pid.
-    pid: Pid,
-    /// Data returned by the actor after it initialised. Commonly this will be
-    /// a subject that it will receive messages from.
-    data: data,
-  )
 }
 
 /// Child restart strategy
@@ -35,16 +22,6 @@ pub type RestartStrategy {
   // Never restart
   Transient
   // Restart only on abnormal termination
-}
-
-/// Supervisor strategy
-pub type SupervisorStrategy {
-  OneForOne
-  // Restart only the failed child
-  OneForAll
-  // Restart all children if one fails
-  RestForOne
-  // Restart failed child and any started after it
 }
 
 pub type ChildType {
@@ -59,12 +36,6 @@ pub type SupervisorError {
   ChildNotFound(id: String)
   AlreadyStarted(id: String)
   InvalidChildSpec(reason: String)
-}
-
-pub type StartError {
-  InitTimeout
-  InitFailed(String)
-  InitExited(process.ExitReason)
 }
 
 // Unified error type for all child operations
@@ -131,7 +102,7 @@ pub type SimpleChildSpec {
 }
 
 // ============================================================================
-// RESULT TYPES - These compile to tuples for Elixir interop
+// RESULT TYPES - These match the Elixir helper return tuples
 // ============================================================================
 
 pub type DynamicSupervisorResult {
@@ -153,10 +124,6 @@ pub type DynamicTerminateResult {
 // FFI FUNCTIONS - Using Elixir Helper Module
 // ============================================================================
 
-// Dynamic Supervisor FFI (using our Elixir helper)
-@external(erlang, "Elixir.Glixir.Supervisor", "start_dynamic_supervisor")
-fn start_dynamic_supervisor_ffi(options: Dynamic) -> DynamicSupervisorResult
-
 @external(erlang, "Elixir.Glixir.Supervisor", "start_dynamic_supervisor_named")
 fn start_dynamic_supervisor_named_ffi(name: String) -> DynamicSupervisorResult
 
@@ -173,10 +140,10 @@ fn terminate_dynamic_child_ffi(
 ) -> DynamicTerminateResult
 
 @external(erlang, "Elixir.Glixir.Supervisor", "which_dynamic_children")
-fn which_dynamic_children_ffi(supervisor: Pid) -> Dynamic
+fn which_dynamic_children_ffi(supervisor: Pid) -> List(ChildInfoResult)
 
 @external(erlang, "Elixir.Glixir.Supervisor", "count_dynamic_children")
-fn count_dynamic_children_ffi(supervisor: Pid) -> Dynamic
+fn count_dynamic_children_ffi(supervisor: Pid) -> ChildCounts
 
 // Regular Supervisor FFI (using our Elixir wrapper)
 @external(erlang, "Elixir.Glixir.Supervisor", "delete_child")
@@ -191,12 +158,6 @@ fn supervisor_restart_child(
   child_id: Dynamic,
 ) -> RestartChildResult
 
-@external(erlang, "Elixir.Glixir.Supervisor", "which_children")
-fn supervisor_which_children(supervisor: Pid) -> List(ChildInfoResult)
-
-@external(erlang, "Elixir.Glixir.Supervisor", "count_children")
-fn supervisor_count_children(supervisor: Pid) -> ChildCounts
-
 @external(erlang, "Elixir.Glixir.Supervisor", "terminate_child")
 fn supervisor_terminate_child(
   supervisor: Pid,
@@ -209,11 +170,6 @@ fn binary_to_atom(name: String) -> Atom
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-// Helper to convert atoms to strings for the Elixir helper
-fn atom_to_string(atom_val: Atom) -> String {
-  atom.to_string(atom_val)
-}
 
 // Helper to convert restart strategy to string
 fn restart_to_string(restart: RestartStrategy) -> String {
@@ -238,11 +194,11 @@ fn spec_to_map(spec: SimpleChildSpec) -> Dynamic {
     #(dynamic.string("id"), dynamic.string(spec.id)),
     #(
       dynamic.string("start_module"),
-      dynamic.string(atom_to_string(spec.start_module)),
+      dynamic.string(atom.to_string(spec.start_module)),
     ),
     #(
       dynamic.string("start_function"),
-      dynamic.string(atom_to_string(spec.start_function)),
+      dynamic.string(atom.to_string(spec.start_function)),
     ),
     #(dynamic.string("start_args"), dynamic.array(spec.start_args)),
     #(
@@ -264,26 +220,26 @@ fn spec_to_map(spec: SimpleChildSpec) -> Dynamic {
 // DYNAMIC SUPERVISOR PUBLIC FUNCTIONS
 // ============================================================================
 
-/// Start a named dynamic supervisor using our Elixir helper
+/// Start a named dynamic supervisor
 pub fn start_dynamic_supervisor_named(
   name: String,
 ) -> Result(Supervisor, SupervisorError) {
   case start_dynamic_supervisor_named_ffi(name) {
-    // We'll need to add proper decoding here
-    _ -> Error(StartError("Not yet implemented - need result decoding"))
+    DynamicSupervisorOk(pid) -> Ok(Supervisor(pid))
+    DynamicSupervisorError(reason) -> Error(StartError(string.inspect(reason)))
   }
 }
 
 /// Start a simple dynamic supervisor with defaults
 pub fn start_dynamic_supervisor_simple() -> Result(Supervisor, SupervisorError) {
   case start_dynamic_supervisor_simple_ffi() {
-    // We'll need to add proper decoding here  
-    _ -> Error(StartError("Not yet implemented - need result decoding"))
+    DynamicSupervisorOk(pid) -> Ok(Supervisor(pid))
+    DynamicSupervisorError(reason) -> Error(StartError(string.inspect(reason)))
   }
 }
 
-/// Start a child in a DynamicSupervisor using our simplified interface
-pub fn start_dynamic_child_simple(
+/// Start a child in a DynamicSupervisor
+pub fn start_dynamic_child(
   supervisor: Supervisor,
   spec: SimpleChildSpec,
 ) -> Result(Pid, String) {
@@ -291,13 +247,38 @@ pub fn start_dynamic_child_simple(
   let spec_map = spec_to_map(spec)
 
   case start_dynamic_child_ffi(supervisor_pid, spec_map) {
-    // We'll need to add proper decoding here
-    _ -> Error("Not yet implemented - need result decoding")
+    DynamicStartChildOk(pid) -> Ok(pid)
+    DynamicStartChildError(reason) -> Error(string.inspect(reason))
   }
 }
 
+/// Terminate a dynamic child process
+pub fn terminate_dynamic_child(
+  supervisor: Supervisor,
+  child_pid: Pid,
+) -> Result(Nil, String) {
+  let Supervisor(supervisor_pid) = supervisor
+
+  case terminate_dynamic_child_ffi(supervisor_pid, child_pid) {
+    DynamicTerminateChildOk -> Ok(Nil)
+    DynamicTerminateChildError(reason) -> Error(string.inspect(reason))
+  }
+}
+
+/// Get information about all dynamic children
+pub fn which_dynamic_children(supervisor: Supervisor) -> List(ChildInfoResult) {
+  let Supervisor(pid) = supervisor
+  which_dynamic_children_ffi(pid)
+}
+
+/// Count dynamic children by type and status
+pub fn count_dynamic_children(supervisor: Supervisor) -> ChildCounts {
+  let Supervisor(pid) = supervisor
+  count_dynamic_children_ffi(pid)
+}
+
 // ============================================================================
-// REGULAR SUPERVISOR PUBLIC FUNCTIONS (keeping existing interface)
+// CHILD SPECIFICATION FUNCTIONS
 // ============================================================================
 
 /// Create a simple child specification - the easy way to define children
@@ -337,6 +318,10 @@ pub fn child_spec_with_restart(
   )
 }
 
+// ============================================================================
+// REGULAR SUPERVISOR FUNCTIONS (for non-dynamic supervisors)
+// ============================================================================
+
 /// Delete a child specification from the supervisor
 pub fn delete_child(
   supervisor: Supervisor,
@@ -355,18 +340,6 @@ pub fn restart_child(
   supervisor_restart_child(pid, dynamic.string(child_id))
 }
 
-/// Get information about all child processes
-pub fn which_children(supervisor: Supervisor) -> List(ChildInfoResult) {
-  let Supervisor(pid) = supervisor
-  supervisor_which_children(pid)
-}
-
-/// Count children by type and status
-pub fn count_children(supervisor: Supervisor) -> ChildCounts {
-  let Supervisor(pid) = supervisor
-  supervisor_count_children(pid)
-}
-
 /// Terminate a child process
 pub fn terminate_child(
   supervisor: Supervisor,
@@ -374,37 +347,4 @@ pub fn terminate_child(
 ) -> TerminateChildResult {
   let Supervisor(pid) = supervisor
   supervisor_terminate_child(pid, dynamic.string(child_id))
-}
-
-// ============================================================================
-// LEGACY FUNCTIONS (keeping for compatibility)
-// ============================================================================
-
-/// Start a new dynamic supervisor with options map (legacy interface)
-pub fn start_link(
-  _options: List(#(String, Dynamic)),
-) -> Result(Supervisor, SupervisorError) {
-  // For now, just use the simple version and ignore options
-  start_dynamic_supervisor_simple()
-}
-
-/// Start a basic dynamic supervisor with default one_for_one strategy
-pub fn start_link_default() -> Result(Supervisor, SupervisorError) {
-  start_dynamic_supervisor_simple()
-}
-
-/// Start a named dynamic supervisor (legacy interface)
-pub fn start_link_named(
-  name: String,
-  _additional_options: List(#(String, Dynamic)),
-) -> Result(Supervisor, SupervisorError) {
-  start_dynamic_supervisor_named(name)
-}
-
-/// Start a child using SimpleChildSpec (legacy interface)
-pub fn start_child_simple(
-  supervisor: Supervisor,
-  spec: SimpleChildSpec,
-) -> Result(Pid, String) {
-  start_dynamic_child_simple(supervisor, spec)
 }
