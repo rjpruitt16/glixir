@@ -1,6 +1,6 @@
-name = "genserver"
+name = "glixir"
 version = "0.1.1"
-description = "Easy interop with Elixir GenServers and Agents from Gleam"
+description = "Easy interop library for Gleam-> oElixir OTP"
 
 licences = ["MIT"]
 repository = { type = "github", user = "rjpruitt16", repo = "genserver" }
