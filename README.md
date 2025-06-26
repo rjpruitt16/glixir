@@ -327,6 +327,36 @@ pub fn robust_worker_start() {
 }
 ```
 
+## About the Author
+
+Built by **Rahmi Pruitt** - Ex-Twitch/Amazon Engineer turned indie hacker, on a mission to bring Gleam to the mainstream! 🚀
+
+I believe Gleam's type safety + Elixir's battle-tested OTP = the future of fault-tolerant systems. This library bridges that gap, making OTP's superpowers accessible to Gleam developers.
+
+**Connect with me:**
+- 💼 [LinkedIn](https://www.linkedin.com/in/rahmi-pruitt-a1bb4a127/)
+- 🐦 Follow my Gleam journey and indie hacking adventures
+
+*"Making concurrent programming delightful, one type at a time."*
+
+---
+
+## Why Gleam + OTP?
+
+**Gleam brings:**
+- 🛡️ **Compile-time safety** - Catch errors before production
+- 🧠 **Excellent inference** - Less typing, more productivity  
+- 🎯 **Simple syntax** - Easy to learn, hard to misuse
+- ⚡ **Zero-cost abstractions** - Performance without complexity
+
+**OTP brings:**
+- 🏗️ **Battle-tested patterns** - 30+ years of production wisdom
+- 🔄 **Fault tolerance** - "Let it crash" philosophy
+- 📡 **Distribution** - Scale across machines effortlessly
+- 🎭 **Actor model** - Simple concurrency primitives
+
+**Together:** The most productive way to build reliable, concurrent systems.
+
 ## Coming Soon
 
 - 🚧 **Registry** - Process registration and discovery
@@ -355,3 +385,22 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 **Ready to build fault-tolerant, concurrent systems with Gleam? Give glixir a try!** ⚡
+
+---
+
+## About the Author 👨‍💻
+
+Built with ❤️ by **Rahmi Pruitt** - Ex-Twitch/Amazon Engineer turned indie hacker, on a mission to bring Gleam to the mainstream! 🚀
+
+After years of building large-scale systems at Amazon and Twitch, I fell in love with Gleam's type safety and developer experience. But I missed the battle-tested OTP patterns that make Elixir/Erlang so powerful for building fault-tolerant systems.
+
+**This library bridges that gap** - bringing OTP's superpowers to Gleam developers without sacrificing type safety or ergonomics.
+
+**Connect with me:**
+- 💼 **[LinkedIn: Rahmi Pruitt](https://www.linkedin.com/in/rahmi-pruitt-a1bb4a127/)** - Let's connect!
+- 🐦 Follow my Gleam journey and indie hacking adventures
+- 📧 Questions? Feedback? I'd love to hear from you!
+
+*"Making concurrent programming delightful, one type at a time."*
+
+---

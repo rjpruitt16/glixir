@@ -131,24 +131,46 @@ pub type SimpleChildSpec {
 }
 
 // ============================================================================
+// RESULT TYPES - These compile to tuples for Elixir interop
+// ============================================================================
+
+pub type DynamicSupervisorResult {
+  DynamicSupervisorOk(pid: Pid)
+  DynamicSupervisorError(reason: Dynamic)
+}
+
+pub type DynamicChildResult {
+  DynamicStartChildOk(pid: Pid)
+  DynamicStartChildError(reason: Dynamic)
+}
+
+pub type DynamicTerminateResult {
+  DynamicTerminateChildOk
+  DynamicTerminateChildError(reason: Dynamic)
+}
+
+// ============================================================================
 // FFI FUNCTIONS - Using Elixir Helper Module
 // ============================================================================
 
 // Dynamic Supervisor FFI (using our Elixir helper)
 @external(erlang, "Elixir.Glixir.Supervisor", "start_dynamic_supervisor")
-fn start_dynamic_supervisor_ffi(options: Dynamic) -> Dynamic
+fn start_dynamic_supervisor_ffi(options: Dynamic) -> DynamicSupervisorResult
 
 @external(erlang, "Elixir.Glixir.Supervisor", "start_dynamic_supervisor_named")
-fn start_dynamic_supervisor_named_ffi(name: String) -> Dynamic
+fn start_dynamic_supervisor_named_ffi(name: String) -> DynamicSupervisorResult
 
 @external(erlang, "Elixir.Glixir.Supervisor", "start_dynamic_supervisor_simple")
-fn start_dynamic_supervisor_simple_ffi() -> Dynamic
+fn start_dynamic_supervisor_simple_ffi() -> DynamicSupervisorResult
 
 @external(erlang, "Elixir.Glixir.Supervisor", "start_dynamic_child")
-fn start_dynamic_child_ffi(supervisor: Pid, spec: Dynamic) -> Dynamic
+fn start_dynamic_child_ffi(supervisor: Pid, spec: Dynamic) -> DynamicChildResult
 
 @external(erlang, "Elixir.Glixir.Supervisor", "terminate_dynamic_child")
-fn terminate_dynamic_child_ffi(supervisor: Pid, child_pid: Pid) -> Dynamic
+fn terminate_dynamic_child_ffi(
+  supervisor: Pid,
+  child_pid: Pid,
+) -> DynamicTerminateResult
 
 @external(erlang, "Elixir.Glixir.Supervisor", "which_dynamic_children")
 fn which_dynamic_children_ffi(supervisor: Pid) -> Dynamic
@@ -360,7 +382,7 @@ pub fn terminate_child(
 
 /// Start a new dynamic supervisor with options map (legacy interface)
 pub fn start_link(
-  options: List(#(String, Dynamic)),
+  _options: List(#(String, Dynamic)),
 ) -> Result(Supervisor, SupervisorError) {
   // For now, just use the simple version and ignore options
   start_dynamic_supervisor_simple()
