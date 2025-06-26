@@ -1,12 +1,10 @@
 name: test
-
 on:
   push:
     branches:
       - master
       - main
   pull_request:
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,7 +15,25 @@ jobs:
           otp-version: "27.1.2"
           gleam-version: "1.11.1"
           rebar3-version: "3"
-          elixir-version: "1.17.3"  # Added this line!
-      - run: gleam deps download
-      - run: gleam test
-      - run: gleam format --check src test
+          elixir-version: "1.17.3"
+      
+      # Clear any stale build artifacts
+      - name: Clean build cache
+        run: |
+          rm -rf _build
+          rm -rf build
+          rm -rf _gleam
+          gleam clean
+      
+      # Download dependencies fresh
+      - name: Download dependencies
+        run: gleam deps download
+      
+
+      # Run tests
+      - name: Run tests
+        run: gleam test
+      
+      # Check formatting
+      - name: Check formatting
+        run: gleam format --check src test
