@@ -5,8 +5,6 @@
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
-import gleam/option.{type Option, None, Some}
-import gleam/result
 import gleam/string
 import logging
 
@@ -24,12 +22,15 @@ pub type GenServerError {
   NotFound(name: String)
 }
 
-// FFI functions
-@external(erlang, "gen_server", "start_link")
-fn gen_server_start_link(
-  module: Atom,
+// FFI functions - Using our custom FFI for reliable operation
+@external(erlang, "glixir_ffi", "start_genserver")
+fn ffi_start_genserver(module: String, args: a) -> Result(Pid, Dynamic)
+
+@external(erlang, "glixir_ffi", "start_genserver_named")
+fn ffi_start_genserver_named(
+  module: String,
+  name: String,
   args: a,
-  options: List(Dynamic),
 ) -> Result(Pid, Dynamic)
 
 @external(erlang, "gen_server", "call")
@@ -75,17 +76,10 @@ pub fn start_link(module: String, args: a) -> Result(GenServer, GenServerError) 
 
   logging.log(
     logging.Debug,
-    "🎯 Final module name for atom creation: '" <> final_module_name <> "'",
-  )
-  let module_atom = binary_to_atom(final_module_name)
-  logging.log(logging.Debug, "🔧 Created atom: " <> string.inspect(module_atom))
-
-  logging.log(
-    logging.Debug,
-    "🚀 Calling gen_server:start_link with args: " <> string.inspect(args),
+    "🚀 Calling FFI start_genserver with module: " <> final_module_name,
   )
 
-  case gen_server_start_link(module_atom, args, []) {
+  case ffi_start_genserver(final_module_name, args) {
     Ok(pid) -> {
       logging.log(
         logging.Info,
@@ -138,29 +132,13 @@ pub fn start_link_named(
 
   logging.log(
     logging.Debug,
-    "🎯 Final module name for atom creation: '" <> final_module_name <> "'",
-  )
-  let module_atom = binary_to_atom(final_module_name)
-  logging.log(
-    logging.Debug,
-    "🔧 Created module atom: " <> string.inspect(module_atom),
+    "🚀 Calling FFI start_genserver_named with module: "
+      <> final_module_name
+      <> ", name: "
+      <> name,
   )
 
-  let name_atom = binary_to_atom(name)
-  logging.log(
-    logging.Debug,
-    "🏷️ Created name atom: " <> string.inspect(name_atom),
-  )
-
-  let options = [dynamic.from(#(atom.create("name"), name_atom))]
-  logging.log(logging.Debug, "⚙️ GenServer options: " <> string.inspect(options))
-
-  logging.log(
-    logging.Debug,
-    "🚀 Calling gen_server:start_link with args: " <> string.inspect(args),
-  )
-
-  case gen_server_start_link(module_atom, args, options) {
+  case ffi_start_genserver_named(final_module_name, name, args) {
     Ok(pid) -> {
       logging.log(
         logging.Info,

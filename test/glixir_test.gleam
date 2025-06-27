@@ -36,7 +36,7 @@ pub fn simple_supervisor_test() {
       // Supervisor started successfully - we can't access the PID directly since it's opaque
       // Verify supervisor is working by trying to start a child
       let test_spec =
-        glixir.child_spec("ping_test", "TestGenServer", "start_link", [
+        glixir.child_spec("ping_test", "Elixir.TestGenServer", "start_link", [
           dynamic.string("ping"),
         ])
       case glixir.start_child(supervisor, test_spec) {
@@ -602,261 +602,261 @@ pub fn genserver_start_test() {
   }
 }
 
-// pub fn genserver_named_start_test() {
-//   logging.log(logging.Info, "🏷️ Testing named GenServer start")
-//
-//   case
-//     glixir.start_genserver_named(
-//       "TestGenServer",
-//       "test_genserver",
-//       "named_state",
-//     )
-//   {
-//     Ok(genserver) -> {
-//       logging.log(logging.Info, "✅ Named GenServer started successfully")
-//
-//       // Test lookup by name
-//       case glixir.lookup_genserver("test_genserver") {
-//         Ok(looked_up_genserver) -> {
-//           logging.log(logging.Info, "✅ GenServer lookup by name successful")
-//
-//           // Verify they're the same process
-//           let original_pid = glixir.genserver_pid(genserver)
-//           let looked_up_pid = glixir.genserver_pid(looked_up_genserver)
-//
-//           case original_pid == looked_up_pid {
-//             True -> {
-//               logging.log(
-//                 logging.Info,
-//                 "✅ Looked up GenServer matches original",
-//               )
-//
-//               // Clean up
-//               let _ = glixir.stop_genserver(genserver)
-//               True |> should.be_true
-//             }
-//             False -> {
-//               logging.log(
-//                 logging.Error,
-//                 "❌ Looked up GenServer doesn't match original",
-//               )
-//               let _ = glixir.stop_genserver(genserver)
-//               False |> should.be_true
-//             }
-//           }
-//         }
-//         Error(error) -> {
-//           logging.log(
-//             logging.Error,
-//             "❌ GenServer lookup failed: " <> string.inspect(error),
-//           )
-//           let _ = glixir.stop_genserver(genserver)
-//           False |> should.be_true
-//         }
-//       }
-//     }
-//     Error(error) -> {
-//       logging.log(
-//         logging.Warning,
-//         "⚠️ Named GenServer start failed: " <> string.inspect(error),
-//       )
-//       True |> should.be_true
-//       // Don't fail for compilation issues
-//     }
-//   }
-// }
+pub fn genserver_named_start_test() {
+  logging.log(logging.Info, "🏷️ Testing named GenServer start")
 
-// pub fn genserver_call_test() {
-//   logging.log(logging.Info, "📞 Testing GenServer call functionality")
-//
-//   case glixir.start_simple_genserver("TestGenServer", "call_test_state") {
-//     Ok(genserver) -> {
-//       logging.log(logging.Info, "✅ GenServer started for call test")
-//
-//       // Test ping using wrapper function
-//       case glixir.ping_genserver(genserver) {
-//         Ok(response) -> {
-//           logging.log(logging.Info, "✅ GenServer ping successful")
-//           logging.log(
-//             logging.Debug,
-//             "Ping response: " <> string.inspect(response),
-//           )
-//
-//           // Test get_state using wrapper function
-//           case glixir.get_genserver_state(genserver) {
-//             Ok(state) -> {
-//               logging.log(logging.Info, "✅ GenServer get_state successful")
-//               logging.log(logging.Debug, "State: " <> string.inspect(state))
-//
-//               // Clean up
-//               let _ = glixir.stop_genserver(genserver)
-//               True |> should.be_true
-//             }
-//             Error(error) -> {
-//               logging.log(
-//                 logging.Error,
-//                 "❌ GenServer get_state failed: " <> string.inspect(error),
-//               )
-//               let _ = glixir.stop_genserver(genserver)
-//               True |> should.be_true
-//               // Don't fail - wrapper functions are best effort
-//             }
-//           }
-//         }
-//         Error(error) -> {
-//           logging.log(
-//             logging.Error,
-//             "❌ GenServer ping failed: " <> string.inspect(error),
-//           )
-//           let _ = glixir.stop_genserver(genserver)
-//           True |> should.be_true
-//           // Don't fail - wrapper functions are best effort
-//         }
-//       }
-//     }
-//     Error(error) -> {
-//       logging.log(
-//         logging.Warning,
-//         "⚠️ GenServer start for call test failed: " <> string.inspect(error),
-//       )
-//       True |> should.be_true
-//       // Don't fail for compilation issues
-//     }
-//   }
-// }
-//
-// pub fn genserver_call_named_test() {
-//   logging.log(logging.Info, "📞🏷️ Testing named GenServer call")
-//
-//   case
-//     glixir.start_genserver_named(
-//       "Elixir.TestGenServer",
-//       "call_named_test",
-//       "named_call_state",
-//     )
-//   {
-//     Ok(genserver) -> {
-//       logging.log(logging.Info, "✅ Named GenServer started for call test")
-//
-//       // Test calling by name instead of GenServer instance
-//       case
-//         glixir.call_genserver_named(
-//           "call_named_test",
-//           dynamic.from(atom.create("ping")),
-//         )
-//       {
-//         Ok(response) -> {
-//           logging.log(logging.Info, "✅ Named GenServer call successful")
-//           logging.log(
-//             logging.Debug,
-//             "Named call response: " <> string.inspect(response),
-//           )
-//
-//           // Clean up
-//           let _ = glixir.stop_genserver(genserver)
-//           True |> should.be_true
-//         }
-//         Error(error) -> {
-//           logging.log(
-//             logging.Error,
-//             "❌ Named GenServer call failed: " <> string.inspect(error),
-//           )
-//           let _ = glixir.stop_genserver(genserver)
-//           False |> should.be_true
-//         }
-//       }
-//     }
-//     Error(error) -> {
-//       logging.log(
-//         logging.Warning,
-//         "⚠️ Named GenServer start for call test failed: "
-//           <> string.inspect(error),
-//       )
-//       True |> should.be_true
-//       // Don't fail for compilation issues
-//     }
-//   }
-// }
-//
-// pub fn genserver_cast_test() {
-//   logging.log(logging.Info, "📨 Testing GenServer cast functionality")
-//
-//   case glixir.start_genserver("Elixir.TestGenServer", "cast_test_state") {
-//     Ok(genserver) -> {
-//       logging.log(logging.Info, "✅ GenServer started for cast test")
-//
-//       // Test cast (fire and forget - should always succeed if GenServer is alive)
-//       case
-//         glixir.cast_genserver(genserver, dynamic.string("test_cast_message"))
-//       {
-//         Ok(_) -> {
-//           logging.log(logging.Info, "✅ GenServer cast successful")
-//
-//           // Test named cast
-//           case
-//             glixir.start_genserver_named(
-//               "Elixir.TestGenServer",
-//               "cast_named_test",
-//               "cast_named_state",
-//             )
-//           {
-//             Ok(named_genserver) -> {
-//               case
-//                 glixir.cast_genserver_named(
-//                   "cast_named_test",
-//                   dynamic.string("named_cast_message"),
-//                 )
-//               {
-//                 Ok(_) -> {
-//                   logging.log(logging.Info, "✅ Named GenServer cast successful")
-//
-//                   // Clean up both
-//                   let _ = glixir.stop_genserver(genserver)
-//                   let _ = glixir.stop_genserver(named_genserver)
-//                   True |> should.be_true
-//                 }
-//                 Error(error) -> {
-//                   logging.log(
-//                     logging.Error,
-//                     "❌ Named GenServer cast failed: " <> string.inspect(error),
-//                   )
-//                   let _ = glixir.stop_genserver(genserver)
-//                   let _ = glixir.stop_genserver(named_genserver)
-//                   False |> should.be_true
-//                 }
-//               }
-//             }
-//             Error(_) -> {
-//               logging.log(
-//                 logging.Warning,
-//                 "⚠️ Named GenServer for cast test failed to start",
-//               )
-//               let _ = glixir.stop_genserver(genserver)
-//               True |> should.be_true
-//             }
-//           }
-//         }
-//         Error(error) -> {
-//           logging.log(
-//             logging.Error,
-//             "❌ GenServer cast failed: " <> string.inspect(error),
-//           )
-//           let _ = glixir.stop_genserver(genserver)
-//           False |> should.be_true
-//         }
-//       }
-//     }
-//     Error(error) -> {
-//       logging.log(
-//         logging.Warning,
-//         "⚠️ GenServer start for cast test failed: " <> string.inspect(error),
-//       )
-//       True |> should.be_true
-//       // Don't fail for compilation issues
-//     }
-//   }
-// }
-//
+  case
+    glixir.start_genserver_named(
+      "TestGenServer",
+      "test_genserver",
+      "named_state",
+    )
+  {
+    Ok(genserver) -> {
+      logging.log(logging.Info, "✅ Named GenServer started successfully")
+
+      // Test lookup by name
+      case glixir.lookup_genserver("test_genserver") {
+        Ok(looked_up_genserver) -> {
+          logging.log(logging.Info, "✅ GenServer lookup by name successful")
+
+          // Verify they're the same process
+          let original_pid = glixir.genserver_pid(genserver)
+          let looked_up_pid = glixir.genserver_pid(looked_up_genserver)
+
+          case original_pid == looked_up_pid {
+            True -> {
+              logging.log(
+                logging.Info,
+                "✅ Looked up GenServer matches original",
+              )
+
+              // Clean up
+              let _ = glixir.stop_genserver(genserver)
+              True |> should.be_true
+            }
+            False -> {
+              logging.log(
+                logging.Error,
+                "❌ Looked up GenServer doesn't match original",
+              )
+              let _ = glixir.stop_genserver(genserver)
+              False |> should.be_true
+            }
+          }
+        }
+        Error(error) -> {
+          logging.log(
+            logging.Error,
+            "❌ GenServer lookup failed: " <> string.inspect(error),
+          )
+          let _ = glixir.stop_genserver(genserver)
+          False |> should.be_true
+        }
+      }
+    }
+    Error(error) -> {
+      logging.log(
+        logging.Warning,
+        "⚠️ Named GenServer start failed: " <> string.inspect(error),
+      )
+      True |> should.be_true
+      // Don't fail for compilation issues
+    }
+  }
+}
+
+pub fn genserver_call_test() {
+  logging.log(logging.Info, "📞 Testing GenServer call functionality")
+
+  case glixir.start_simple_genserver("TestGenServer", "call_test_state") {
+    Ok(genserver) -> {
+      logging.log(logging.Info, "✅ GenServer started for call test")
+
+      // Test ping using wrapper function
+      case glixir.ping_genserver(genserver) {
+        Ok(response) -> {
+          logging.log(logging.Info, "✅ GenServer ping successful")
+          logging.log(
+            logging.Debug,
+            "Ping response: " <> string.inspect(response),
+          )
+
+          // Test get_state using wrapper function
+          case glixir.get_genserver_state(genserver) {
+            Ok(state) -> {
+              logging.log(logging.Info, "✅ GenServer get_state successful")
+              logging.log(logging.Debug, "State: " <> string.inspect(state))
+
+              // Clean up
+              let _ = glixir.stop_genserver(genserver)
+              True |> should.be_true
+            }
+            Error(error) -> {
+              logging.log(
+                logging.Error,
+                "❌ GenServer get_state failed: " <> string.inspect(error),
+              )
+              let _ = glixir.stop_genserver(genserver)
+              True |> should.be_true
+              // Don't fail - wrapper functions are best effort
+            }
+          }
+        }
+        Error(error) -> {
+          logging.log(
+            logging.Error,
+            "❌ GenServer ping failed: " <> string.inspect(error),
+          )
+          let _ = glixir.stop_genserver(genserver)
+          True |> should.be_true
+          // Don't fail - wrapper functions are best effort
+        }
+      }
+    }
+    Error(error) -> {
+      logging.log(
+        logging.Warning,
+        "⚠️ GenServer start for call test failed: " <> string.inspect(error),
+      )
+      True |> should.be_true
+      // Don't fail for compilation issues
+    }
+  }
+}
+
+pub fn genserver_call_named_test() {
+  logging.log(logging.Info, "📞🏷️ Testing named GenServer call")
+
+  case
+    glixir.start_genserver_named(
+      "Elixir.TestGenServer",
+      "call_named_test",
+      "named_call_state",
+    )
+  {
+    Ok(genserver) -> {
+      logging.log(logging.Info, "✅ Named GenServer started for call test")
+
+      // Test calling by name instead of GenServer instance
+      case
+        glixir.call_genserver_named(
+          "call_named_test",
+          atom.create("ping") |> atom.to_dynamic,
+        )
+      {
+        Ok(response) -> {
+          logging.log(logging.Info, "✅ Named GenServer call successful")
+          logging.log(
+            logging.Debug,
+            "Named call response: " <> string.inspect(response),
+          )
+
+          // Clean up
+          let _ = glixir.stop_genserver(genserver)
+          True |> should.be_true
+        }
+        Error(error) -> {
+          logging.log(
+            logging.Error,
+            "❌ Named GenServer call failed: " <> string.inspect(error),
+          )
+          let _ = glixir.stop_genserver(genserver)
+          False |> should.be_true
+        }
+      }
+    }
+    Error(error) -> {
+      logging.log(
+        logging.Warning,
+        "⚠️ Named GenServer start for call test failed: "
+          <> string.inspect(error),
+      )
+      True |> should.be_true
+      // Don't fail for compilation issues
+    }
+  }
+}
+
+pub fn genserver_cast_test() {
+  logging.log(logging.Info, "📨 Testing GenServer cast functionality")
+
+  case glixir.start_genserver("Elixir.TestGenServer", "cast_test_state") {
+    Ok(genserver) -> {
+      logging.log(logging.Info, "✅ GenServer started for cast test")
+
+      // Test cast (fire and forget - should always succeed if GenServer is alive)
+      case
+        glixir.cast_genserver(genserver, dynamic.string("test_cast_message"))
+      {
+        Ok(_) -> {
+          logging.log(logging.Info, "✅ GenServer cast successful")
+
+          // Test named cast
+          case
+            glixir.start_genserver_named(
+              "Elixir.TestGenServer",
+              "cast_named_test",
+              "cast_named_state",
+            )
+          {
+            Ok(named_genserver) -> {
+              case
+                glixir.cast_genserver_named(
+                  "cast_named_test",
+                  dynamic.string("named_cast_message"),
+                )
+              {
+                Ok(_) -> {
+                  logging.log(logging.Info, "✅ Named GenServer cast successful")
+
+                  // Clean up both
+                  let _ = glixir.stop_genserver(genserver)
+                  let _ = glixir.stop_genserver(named_genserver)
+                  True |> should.be_true
+                }
+                Error(error) -> {
+                  logging.log(
+                    logging.Error,
+                    "❌ Named GenServer cast failed: " <> string.inspect(error),
+                  )
+                  let _ = glixir.stop_genserver(genserver)
+                  let _ = glixir.stop_genserver(named_genserver)
+                  False |> should.be_true
+                }
+              }
+            }
+            Error(_) -> {
+              logging.log(
+                logging.Warning,
+                "⚠️ Named GenServer for cast test failed to start",
+              )
+              let _ = glixir.stop_genserver(genserver)
+              True |> should.be_true
+            }
+          }
+        }
+        Error(error) -> {
+          logging.log(
+            logging.Error,
+            "❌ GenServer cast failed: " <> string.inspect(error),
+          )
+          let _ = glixir.stop_genserver(genserver)
+          False |> should.be_true
+        }
+      }
+    }
+    Error(error) -> {
+      logging.log(
+        logging.Warning,
+        "⚠️ GenServer start for cast test failed: " <> string.inspect(error),
+      )
+      True |> should.be_true
+      // Don't fail for compilation issues
+    }
+  }
+}
+
 pub fn genserver_timeout_test() {
   logging.log(logging.Info, "⏱️ Testing GenServer call with timeout")
 
@@ -868,7 +868,7 @@ pub fn genserver_timeout_test() {
       case
         glixir.call_genserver_timeout(
           genserver,
-          dynamic.from(atom.create("ping")),
+          atom.create("ping") |> atom.to_dynamic,
           1000,
         )
       {
@@ -921,7 +921,10 @@ pub fn genserver_lifecycle_test() {
 
           // Do a call
           case
-            glixir.call_genserver(genserver, dynamic.from(atom.create("ping")))
+            glixir.call_genserver(
+              genserver,
+              atom.create("ping") |> atom.to_dynamic,
+            )
           {
             Ok(_) -> {
               logging.log(logging.Info, "✅ GenServer responded to call")

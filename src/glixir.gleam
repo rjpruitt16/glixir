@@ -257,12 +257,12 @@ pub fn start_simple_genserver(
 
 /// Ping a GenServer (returns :pong if successful) 
 pub fn ping_genserver(server: GenServer) -> Result(Dynamic, GenServerError) {
-  genserver.call(server, dynamic.from(atom.create("ping")))
+  genserver.call(server, atom.create("ping") |> atom.to_dynamic)
 }
 
 /// Get state from a GenServer
 pub fn get_genserver_state(server: GenServer) -> Result(Dynamic, GenServerError) {
-  genserver.call(server, dynamic.from(atom.create("get_state")))
+  genserver.call(server, atom.create("get_state") |> atom.to_dynamic)
 }
 
 /// Start a GenServer using Module.start_link/1
