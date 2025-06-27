@@ -1,5 +1,5 @@
 name = "glixir"
-version = "0.2.1"
+version = "1.0.1"
 description = "Easy interop library for Gleam-> oElixir OTP"
 
 licences = ["MIT"]

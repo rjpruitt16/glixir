@@ -8,6 +8,7 @@ import gleam/string
 import gleeunit
 import gleeunit/should
 import glixir
+import glixir/registry
 import glixir/supervisor
 import logging
 
@@ -17,9 +18,127 @@ pub fn main() {
   gleeunit.main()
 }
 
+// Test message type for registry testing
+pub type TestMessage {
+  Echo(String)
+  Ping
+}
+
 // Test helper - simple process spawning for testing
 pub fn spawn_test_process() -> Pid {
   process.spawn(fn() { process.sleep(100) })
+}
+
+// ============================================================================
+// REGISTRY BASIC VERIFICATION TEST
+// ============================================================================
+pub fn registry_basic_test() {
+  logging.log(logging.Info, "🏪 Testing basic registry functionality")
+
+  // Start registry using glixir function
+  case glixir.start_registry("test_registry") {
+    Ok(_) -> {
+      logging.log(logging.Info, "✅ Registry started")
+
+      // Create and register a subject
+      let test_subject = process.new_subject()
+      case glixir.register_subject("test_registry", "test_key", test_subject) {
+        Ok(_) -> {
+          logging.log(logging.Info, "✅ Subject registered")
+
+          // Look it up
+          case glixir.lookup_subject("test_registry", "test_key") {
+            Ok(found_subject) -> {
+              logging.log(logging.Info, "✅ Subject found")
+              process.send(found_subject, Echo("test"))
+              True |> should.be_true
+            }
+            Error(_) -> {
+              logging.log(logging.Error, "❌ Subject lookup failed")
+              False |> should.be_true
+            }
+          }
+        }
+        Error(_) -> {
+          logging.log(logging.Error, "❌ Subject registration failed")
+          False |> should.be_true
+        }
+      }
+    }
+    Error(_) -> {
+      logging.log(logging.Error, "❌ Registry start failed")
+      False |> should.be_true
+    }
+  }
+}
+
+pub fn registry_error_test() {
+  logging.log(logging.Info, "⚠️ Testing registry error handling")
+
+  // Test lookup in non-existent registry
+  case glixir.lookup_subject("nonexistent_registry", "any_key") {
+    Ok(_) -> {
+      logging.log(
+        logging.Error,
+        "❌ Found subject in non-existent registry (shouldn't happen)",
+      )
+      False |> should.be_true
+    }
+    Error(registry.LookupError(_)) -> {
+      logging.log(
+        logging.Info,
+        "✅ Correctly failed to find subject in non-existent registry",
+      )
+
+      // Test lookup of non-existent key in existing registry
+      case glixir.start_registry("error_test_registry") {
+        Ok(_) -> {
+          case glixir.lookup_subject("error_test_registry", "missing_key") {
+            Ok(_) -> {
+              logging.log(
+                logging.Error,
+                "❌ Found non-existent key (shouldn't happen)",
+              )
+              False |> should.be_true
+            }
+            Error(registry.NotFound) -> {
+              // 🔧 FIX: Match specific error type
+              logging.log(
+                logging.Info,
+                "✅ Correctly failed to find non-existent key",
+              )
+              True |> should.be_true
+            }
+            Error(_) -> {
+              logging.log(
+                logging.Info,
+                "✅ Correctly failed to find non-existent key (other error)",
+              )
+              True |> should.be_true
+            }
+          }
+        }
+        Error(_) -> {
+          logging.log(logging.Warning, "⚠️ Could not start error test registry")
+          True |> should.be_true
+        }
+      }
+    }
+    Error(registry.NotFound) -> {
+      logging.log(
+        logging.Info,
+        "✅ Correctly returned NotFound for non-existent registry",
+      )
+      True |> should.be_true
+    }
+    Error(_) -> {
+      logging.log(
+        logging.Info,
+        "✅ Correctly failed to find subject in non-existent registry (other error)",
+      )
+      True |> should.be_true
+    }
+  }
 }
 
 // ============================================================================

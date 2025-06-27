@@ -1,16 +1,16 @@
-//// glixir - Seamless OTP interop between Gleam and Elixir/Erlang
+//// glixir - Enhanced with Subject support for proper message passing
 //// 
 //// This module provides a unified API for working with OTP processes from Gleam.
-//// Import this module to get access to Supervisors, GenServers, and Agents.
+//// Now includes registry support for Subject lookup.
 
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/erlang/atom
-import gleam/erlang/process.{type Pid}
-import gleam/io
+import gleam/erlang/process.{type Pid, type Subject}
 import gleam/string
 import glixir/agent
 import glixir/genserver
+import glixir/registry
 import glixir/supervisor.{type ChildCounts}
 import logging
 
@@ -23,6 +23,9 @@ pub type Agent =
 
 pub type Supervisor =
   supervisor.Supervisor
+
+pub type Registry =
+  registry.Registry
 
 pub type SimpleChildSpec =
   supervisor.SimpleChildSpec
@@ -53,6 +56,47 @@ pub type AgentError =
 
 pub type SupervisorError =
   supervisor.SupervisorError
+
+pub type RegistryError =
+  registry.RegistryError
+
+//
+// REGISTRY FUNCTIONS
+//
+
+/// Start a unique registry for Subject lookup
+pub fn start_registry(name: String) -> Result(Registry, RegistryError) {
+  logging.log(logging.Debug, "Starting registry: " <> name)
+  registry.start_unique_registry(name)
+}
+
+/// Register a Subject with a key in the registry
+pub fn register_subject(
+  registry_name: String,
+  key: String,
+  subject: Subject(message),
+) -> Result(Nil, RegistryError) {
+  logging.log(logging.Debug, "Registering subject: " <> key)
+  registry.register_subject(registry_name, key, subject)
+}
+
+/// Look up a Subject by key in the registry
+pub fn lookup_subject(
+  registry_name: String,
+  key: String,
+) -> Result(Subject(message), RegistryError) {
+  logging.log(logging.Debug, "Looking up subject: " <> key)
+  registry.lookup_subject(registry_name, key)
+}
+
+/// Unregister a Subject from the registry
+pub fn unregister_subject(
+  registry_name: String,
+  key: String,
+) -> Result(Nil, RegistryError) {
+  logging.log(logging.Debug, "Unregistering subject: " <> key)
+  registry.unregister_subject(registry_name, key)
+}
 
 //
 // SUPERVISOR FUNCTIONS
@@ -244,8 +288,6 @@ pub fn count_children(supervisor_instance: Supervisor) -> ChildCounts {
 //
 // GENSERVER FUNCTIONS
 //
-
-// Add these practical GenServer wrappers to glixir.gleam
 
 /// Start a simple GenServer with one argument
 pub fn start_simple_genserver(
