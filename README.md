@@ -5,14 +5,14 @@
 
 **Seamless OTP interop between Gleam and Elixir/Erlang**
 
-Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. Use GenServers, Supervisors, Agents, and more from Gleam with confidence.
+Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. Use GenServers, Supervisors, Agents, Registry, and more from Gleam with confidence.
 
 ## Features
 
 - ✅ **GenServer** - Type-safe calls to Elixir GenServers
 - ✅ **DynamicSupervisor** - Runtime process supervision and management
 - ✅ **Agent** - Simple state management with async operations
-- 🚧 **Registry** - Process registration and discovery _(coming soon)_
+- ✅ **Registry** - Dynamic process registration and Subject lookup
 - 🚧 **Task** - Async task execution _(coming soon)_
 - 🚧 **Phoenix.PubSub** - Distributed messaging _(coming soon)_
 - ✅ **Zero overhead** - Direct BEAM interop with clean Elixir helpers
@@ -24,14 +24,65 @@ Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. 
 gleam add glixir
 ```
 
-Add the Elixir helper module to your project:
+Add the Elixir helper modules to your project:
 
 ```elixir
-# lib/glixir_supervisor.ex
-# Copy the Glixir.Supervisor module from the docs
+# lib/glixir_supervisor.ex and lib/glixir_registry.ex
+# Copy the helper modules from the docs
 ```
 
 ## Quick Start
+
+### Registry - Dynamic Actor Discovery
+
+**The game-changer for building scalable actor systems! 🎯**
+
+```gleam
+import glixir
+import gleam/erlang/process
+
+pub type UserMessage {
+  RecordMetric(name: String, value: Float)
+  GetStats
+}
+
+pub fn actor_discovery_example() {
+  // Start registry for actor lookup
+  let assert Ok(_registry) = glixir.start_registry("user_actors")
+  
+  // Start supervisor for dynamic actors
+  let assert Ok(supervisor) = glixir.start_supervisor_simple()
+  
+  // Spawn a user actor dynamically
+  let user_spec = glixir.child_spec(
+    id: "user_123",
+    module: "MyApp.UserActor", 
+    function: "start_link",
+    args: [dynamic.string("user_123")]
+  )
+  
+  let assert Ok(user_pid) = glixir.start_child(supervisor, user_spec)
+  
+  // Actor registers itself in the registry
+  let user_subject = process.new_subject()
+  let assert Ok(_) = glixir.register_subject("user_actors", "user_123", user_subject)
+  
+  // Later... find and message the actor from anywhere!
+  case glixir.lookup_subject("user_actors", "user_123") {
+    Ok(subject) -> {
+      process.send(subject, RecordMetric("page_views", 1.0))
+      io.println("Metric sent to user actor! 📊")
+    }
+    Error(_) -> io.println("User actor not found")
+  }
+}
+```
+
+**Perfect for:**
+- 🎯 **Metrics platforms** - Find user actors by ID
+- 🎮 **Game servers** - Locate player sessions
+- 💬 **Chat systems** - Route messages to user connections
+- 📊 **Real-time dashboards** - Dynamic process coordination
 
 ### DynamicSupervisor
 
@@ -193,6 +244,64 @@ pub fn worker_example() {
 
 ## Advanced Patterns
 
+### Scalable Actor System with Registry
+
+```gleam
+import glixir
+import gleam/erlang/process
+import gleam/dynamic
+
+pub type MetricMessage {
+  Record(name: String, value: Float, user_id: String)
+  Subscribe(subject: process.Subject(String))
+}
+
+pub fn metrics_platform_example() {
+  // Infrastructure setup
+  let assert Ok(_) = glixir.start_registry("metric_actors")
+  let assert Ok(_) = glixir.start_registry("user_sessions") 
+  let assert Ok(supervisor) = glixir.start_supervisor_named("metrics_supervisor", [])
+  
+  // Spawn metric collector actor
+  let metric_spec = glixir.child_spec(
+    id: "metric_collector",
+    module: "MyApp.MetricCollector",
+    function: "start_link", 
+    args: []
+  )
+  
+  let assert Ok(_metric_pid) = glixir.start_child(supervisor, metric_spec)
+  
+  // When a user connects, spawn their personal actor
+  let user_id = "user_12345"
+  let user_spec = glixir.child_spec(
+    id: user_id,
+    module: "MyApp.UserActor",
+    function: "start_link",
+    args: [dynamic.string(user_id)]
+  )
+  
+  let assert Ok(_user_pid) = glixir.start_child(supervisor, user_spec)
+  
+  // User actor registers itself
+  let user_subject = process.new_subject()
+  let assert Ok(_) = glixir.register_subject("user_sessions", user_id, user_subject)
+  
+  // From anywhere in the system - send metrics to user
+  case glixir.lookup_subject("user_sessions", user_id) {
+    Ok(subject) -> {
+      process.send(subject, Record("page_view", 1.0, user_id))
+      io.println("✅ Metric routed to user actor!")
+    }
+    Error(_) -> io.println("❌ User session not found")
+  }
+  
+  // Cleanup when user disconnects
+  let assert Ok(_) = glixir.unregister_subject("user_sessions", user_id)
+  let assert Ok(_) = glixir.terminate_child(supervisor, user_id)
+}
+```
+
 ### Worker Pool Pattern
 
 ```gleam
@@ -288,6 +397,27 @@ let custom_spec = glixir.SimpleChildSpec(
 )
 ```
 
+## Registry API Reference
+
+```gleam
+// Start a unique registry (most common)
+let assert Ok(registry) = glixir.start_registry("my_processes")
+
+// Register a Subject by key  
+let subject = process.new_subject()
+let assert Ok(_) = glixir.register_subject("my_processes", "worker_1", subject)
+
+// Look up Subject by key
+case glixir.lookup_subject("my_processes", "worker_1") {
+  Ok(found_subject) -> process.send(found_subject, MyMessage)
+  Error(glixir.NotFound) -> io.println("Process not found")
+  Error(_) -> io.println("Registry error")
+}
+
+// Clean up
+let assert Ok(_) = glixir.unregister_subject("my_processes", "worker_1")
+```
+
 ## Type Safety Notes
 
 While this library provides type-safe wrappers on the Gleam side, remember:
@@ -327,6 +457,16 @@ pub fn robust_worker_start() {
 }
 ```
 
+## Real-World Use Cases
+
+**TrackTags** - Auto-scaling metrics platform built with glixir:
+- ✅ Dynamic user actors spawned per session
+- ✅ Registry-based actor discovery by user ID  
+- ✅ Real-time metric collection and coordination
+- ✅ Fault-tolerant supervision trees
+
+*"glixir made building a distributed metrics platform feel like writing normal Gleam code. The Registry system is a game-changer for actor coordination!"*
+
 ## About the Author
 
 Built by **Rahmi Pruitt** - Ex-Twitch/Amazon Engineer turned indie hacker, on a mission to bring Gleam to the mainstream! 🚀
@@ -338,3 +478,7 @@ I believe Gleam's type safety + Elixir's battle-tested OTP = the future of fault
 - 🐦 Follow my Gleam journey and indie hacking adventures
 
 *"Making concurrent programming delightful, one type at a time."*
+
+---
+
+**⭐ Star this repo if glixir helped you build something awesome!** Your support helps bring mature OTP tooling to the Gleam ecosystem.
