@@ -60,10 +60,12 @@ pub fn start_named(
   initial_fun: fn() -> a,
 ) -> Result(Agent, AgentError) {
   let name_atom = atom.create(name)
-  // The deprecated dynamic.from is still the most direct way to get a Dynamic
-  // from a Gleam tuple containing atoms for this specific use case, despite the warning.
-  let options = [dynamic.from(#(atom.create("name"), name_atom))]
-
+  let options = [
+    dynamic.array([
+      atom.to_dynamic(atom.create("name")),
+      atom.to_dynamic(name_atom),
+    ]),
+  ]
   case agent_start_link(initial_fun, options) {
     Ok(pid) -> Ok(Agent(pid))
     Error(reason) -> Error(StartError(string.inspect(reason)))
