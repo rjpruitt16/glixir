@@ -1,4 +1,4 @@
-import gleam/dynamic
+import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/erlang/atom
 import gleam/erlang/process.{type Pid}
@@ -8,6 +8,7 @@ import gleam/string
 import gleeunit
 import gleeunit/should
 import glixir
+import glixir/pubsub
 import glixir/registry
 import glixir/supervisor
 import logging
@@ -27,6 +28,80 @@ pub type TestMessage {
 // Test helper - simple process spawning for testing
 pub fn spawn_test_process() -> Pid {
   process.spawn(fn() { process.sleep(100) })
+}
+
+// ============================================================================
+// PUBSUB BASIC VERIFICATION TEST  
+// ============================================================================
+pub fn pubsub_wrapper_integration_test() {
+  logging.log(logging.Info, "🚀 Testing PubSub wrapper integration")
+
+  // Test 1: Start PubSub
+  case glixir.start_pubsub("integration_test") {
+    Ok(_pubsub) -> {
+      logging.log(logging.Info, "✅ PubSub started")
+
+      // Test 2: Subscribe to a topic
+      case glixir.pubsub_subscribe("integration_test", "test_topic") {
+        Ok(_) -> {
+          logging.log(logging.Info, "✅ Subscribed to topic")
+
+          // Test 3: Broadcast a message
+          case
+            glixir.pubsub_broadcast(
+              "integration_test",
+              "test_topic",
+              "Hello PubSub!",
+            )
+          {
+            Ok(_) -> {
+              logging.log(logging.Info, "✅ Message broadcast")
+
+              // Give a moment for message delivery
+              process.sleep(10)
+
+              // Test 4: Unsubscribe
+              case glixir.pubsub_unsubscribe("integration_test", "test_topic") {
+                Ok(_) -> {
+                  logging.log(logging.Info, "✅ Unsubscribed from topic")
+                  logging.log(
+                    logging.Info,
+                    "🎉 PubSub wrapper fully functional!",
+                  )
+                  True |> should.be_true
+                }
+                Error(e) -> {
+                  logging.log(
+                    logging.Error,
+                    "❌ Unsubscribe failed: " <> string.inspect(e),
+                  )
+                  False |> should.be_true
+                }
+              }
+            }
+            Error(e) -> {
+              logging.log(
+                logging.Error,
+                "❌ Broadcast failed: " <> string.inspect(e),
+              )
+              False |> should.be_true
+            }
+          }
+        }
+        Error(e) -> {
+          logging.log(
+            logging.Error,
+            "❌ Subscribe failed: " <> string.inspect(e),
+          )
+          False |> should.be_true
+        }
+      }
+    }
+    Error(e) -> {
+      logging.log(logging.Error, "❌ PubSub start failed: " <> string.inspect(e))
+      False |> should.be_true
+    }
+  }
 }
 
 // ============================================================================

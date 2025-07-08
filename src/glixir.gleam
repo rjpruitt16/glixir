@@ -10,6 +10,7 @@ import gleam/erlang/process.{type Pid, type Subject}
 import gleam/string
 import glixir/agent
 import glixir/genserver
+import glixir/pubsub
 import glixir/registry
 import glixir/supervisor.{type ChildCounts}
 import logging
@@ -36,6 +37,12 @@ pub type RestartStrategy =
 pub type ChildType =
   supervisor.ChildType
 
+pub type PubSub =
+  pubsub.PubSub
+
+pub type PubSubError =
+  pubsub.PubSubError
+
 // Re-export constructor values for convenience 
 pub const permanent = supervisor.Permanent
 
@@ -59,6 +66,36 @@ pub type SupervisorError =
 
 pub type RegistryError =
   registry.RegistryError
+
+// 
+// PUBSUB FUNCTIONS
+//
+
+pub fn start_pubsub(name: String) -> Result(PubSub, PubSubError) {
+  pubsub.start_pubsub(name)
+}
+
+pub fn pubsub_subscribe(
+  pubsub_name: String,
+  topic: String,
+) -> Result(Nil, PubSubError) {
+  pubsub.subscribe(pubsub_name, topic)
+}
+
+pub fn pubsub_broadcast(
+  pubsub_name: String,
+  topic: String,
+  message: a,
+) -> Result(Nil, PubSubError) {
+  pubsub.broadcast(pubsub_name, topic, message)
+}
+
+pub fn pubsub_unsubscribe(
+  pubsub_name: String,
+  topic: String,
+) -> Result(Nil, PubSubError) {
+  pubsub.unsubscribe(pubsub_name, topic)
+}
 
 //
 // REGISTRY FUNCTIONS
