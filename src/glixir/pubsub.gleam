@@ -92,9 +92,9 @@ pub fn subscribe(pubsub_name: String, topic: String) -> Result(Nil, PubSubError)
 pub fn broadcast(
   pubsub_name: String,
   topic: String,
-  message: a,
+  message: Dynamic,
 ) -> Result(Nil, PubSubError) {
-  case broadcast_ffi(pubsub_name, topic, dynamic.from(message)) {
+  case broadcast_ffi(pubsub_name, topic, message) {
     PubsubBroadcastOk -> Ok(Nil)
     PubsubBroadcastError(reason) ->
       Error(BroadcastError(string.inspect(reason)))

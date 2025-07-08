@@ -14,7 +14,7 @@ Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. 
 - ✅ **Agent** - Simple state management with async operations
 - ✅ **Registry** - Dynamic process registration and Subject lookup
 - 🚧 **Task** - Async task execution _(coming soon)_
-- 🚧 **Phoenix.PubSub** - Distributed messaging _(coming soon)_
+- ✅ **Phoenix.PubSub** - Distributed messaging and event broadcasting
 - ✅ **Zero overhead** - Direct BEAM interop with clean Elixir helpers
 - ✅ **Gradual adoption** - Use alongside existing Elixir code
 
@@ -32,6 +32,41 @@ Add the Elixir helper modules to your project:
 ```
 
 ## Quick Start
+### PubSub - Distributed Messaging
+
+**Perfect for real-time event broadcasting across your system! 📡**
+
+```gleam
+import glixir
+import gleam/erlang/process
+
+pub fn pubsub_example() {
+  // Start a PubSub system
+  let assert Ok(_pubsub) = glixir.start_pubsub("my_app_events")
+  
+  // Subscribe to events
+  let assert Ok(_) = glixir.pubsub_subscribe("my_app_events", "user:123:metrics")
+  
+  // From anywhere in your system, broadcast events
+  let metric_event = #("page_view", "user_123", 1.0)
+  let assert Ok(_) = glixir.pubsub_broadcast(
+    "my_app_events", 
+    "user:123:metrics",
+    metric_event
+  )
+  
+  // Handle incoming messages in your actor
+  case process.receive(subject, 100) {
+    Ok(#("page_view", user_id, count)) -> {
+      io.println("User " <> user_id <> " viewed " <> float.to_string(count) <> " pages")
+    }
+    Error(_) -> io.println("No messages")
+  }
+  
+  // Cleanup when done
+  let assert Ok(_) = glixir.pubsub_unsubscribe("my_app_events", "user:123:metrics")
+}
+```
 
 ### Registry - Dynamic Actor Discovery
 
@@ -116,6 +151,7 @@ pub fn main() {
   io.debug(counts)
 }
 ```
+
 
 ### GenServer Interop
 

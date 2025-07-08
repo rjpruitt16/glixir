@@ -85,7 +85,7 @@ pub fn pubsub_subscribe(
 pub fn pubsub_broadcast(
   pubsub_name: String,
   topic: String,
-  message: a,
+  message: Dynamic,
 ) -> Result(Nil, PubSubError) {
   pubsub.broadcast(pubsub_name, topic, message)
 }

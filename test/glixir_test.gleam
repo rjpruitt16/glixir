@@ -51,7 +51,7 @@ pub fn pubsub_wrapper_integration_test() {
             glixir.pubsub_broadcast(
               "integration_test",
               "test_topic",
-              "Hello PubSub!",
+              dynamic.string("Hello PubSub!"),
             )
           {
             Ok(_) -> {
