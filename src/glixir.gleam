@@ -15,9 +15,8 @@ import glixir/registry
 import glixir/supervisor.{type ChildCounts}
 import logging
 
-// Re-export main types
-pub type GenServer =
-  genserver.GenServer
+pub type GenServer(request, reply) =
+  genserver.GenServer(request, reply)
 
 pub type Agent(state) =
   agent.Agent(state)
@@ -329,27 +328,31 @@ pub fn count_children(supervisor_instance: Supervisor) -> ChildCounts {
 // GENSERVER FUNCTIONS
 //
 
-/// Send a synchronous call to the GenServer (5s timeout)
+// All GenServer functions now require explicit type args!
+
+/// Send a synchronous call to the GenServer (5s timeout, now requires decoder)
 pub fn call_genserver(
-  server: GenServer,
-  request: a,
-) -> Result(b, GenServerError) {
-  genserver.call(server, request)
+  server: GenServer(Dynamic, reply),
+  request: Dynamic,
+  decoder: Decoder(reply),
+) -> Result(reply, GenServerError) {
+  genserver.call(server, request, decoder)
 }
 
-/// Send a synchronous call with custom timeout
+/// Send a synchronous call with custom timeout (now requires decoder)
 pub fn call_genserver_timeout(
-  server: GenServer,
-  request: a,
+  server: GenServer(Dynamic, reply),
+  request: Dynamic,
   timeout: Int,
-) -> Result(b, GenServerError) {
-  genserver.call_timeout(server, request, timeout)
+  decoder: Decoder(reply),
+) -> Result(reply, GenServerError) {
+  genserver.call_timeout(server, request, timeout, decoder)
 }
 
 /// Send an asynchronous cast to the GenServer
 pub fn cast_genserver(
-  server: GenServer,
-  request: a,
+  server: GenServer(Dynamic, reply),
+  request: Dynamic,
 ) -> Result(Nil, GenServerError) {
   genserver.cast(server, request)
 }
@@ -357,8 +360,8 @@ pub fn cast_genserver(
 /// Start a GenServer (Elixir module name, args)
 pub fn start_genserver(
   module: String,
-  args: a,
-) -> Result(GenServer, GenServerError) {
+  args: Dynamic,
+) -> Result(GenServer(Dynamic, reply), GenServerError) {
   genserver.start_link(module, args)
 }
 
@@ -366,64 +369,63 @@ pub fn start_genserver(
 pub fn start_genserver_named(
   module: String,
   name: atom.Atom,
-  args: a,
-) -> Result(GenServer, GenServerError) {
+  args: Dynamic,
+) -> Result(GenServer(Dynamic, reply), GenServerError) {
   genserver.start_link_named(module, atom.to_string(name), args)
 }
 
-/// Start a simple GenServer with one argument
-pub fn start_simple_genserver(
-  module: String,
-  initial_state: String,
-) -> Result(GenServer, GenServerError) {
-  genserver.start_link(module, initial_state)
-}
-
-/// Ping a GenServer (user must pass atom)
+/// Ping a GenServer (user must pass atom as Dynamic)
 pub fn ping_genserver(
-  server: GenServer,
-  msg: atom.Atom,
-) -> Result(Dynamic, GenServerError) {
-  genserver.call(server, msg)
+  server: GenServer(Dynamic, reply),
+  msg: Dynamic,
+  decoder: Decoder(reply),
+) -> Result(reply, GenServerError) {
+  genserver.call(server, msg, decoder)
 }
 
-/// Get state (user must pass atom)
+/// Get state (user must pass atom as Dynamic)
 pub fn get_genserver_state(
-  server: GenServer,
-  msg: atom.Atom,
-) -> Result(Dynamic, GenServerError) {
-  genserver.call(server, msg)
+  server: GenServer(Dynamic, reply),
+  msg: Dynamic,
+  decoder: Decoder(reply),
+) -> Result(reply, GenServerError) {
+  genserver.call(server, msg, decoder)
 }
 
-/// Call a named GenServer
+/// Call a named GenServer (requires decoder)
 pub fn call_genserver_named(
   name: atom.Atom,
-  request: a,
-) -> Result(b, GenServerError) {
-  genserver.call_named(name, request)
+  request: Dynamic,
+  decoder: Decoder(reply),
+) -> Result(reply, GenServerError) {
+  genserver.call_named(name, request, decoder)
 }
 
 /// Cast to a named GenServer
 pub fn cast_genserver_named(
   name: atom.Atom,
-  request: a,
+  request: Dynamic,
 ) -> Result(Nil, GenServerError) {
   genserver.cast_named(name, request)
 }
 
-/// Look up a GenServer by registered Atom name
-pub fn lookup_genserver(name: atom.Atom) -> Result(GenServer, GenServerError) {
+/// Look up a GenServer by registered Atom name (bounded, must specify types)
+pub fn lookup_genserver(
+  name: atom.Atom,
+) -> Result(GenServer(Dynamic, reply), GenServerError) {
   genserver.lookup_name(name)
 }
 
 /// Stop a GenServer gracefully
-pub fn stop_genserver(server: GenServer) -> Result(Nil, GenServerError) {
+pub fn stop_genserver(
+  server: GenServer(Dynamic, reply),
+) -> Result(Nil, GenServerError) {
   logging.log(logging.Debug, "Stopping GenServer")
   genserver.stop(server)
 }
 
 /// Get the PID of a GenServer
-pub fn genserver_pid(server: GenServer) -> Pid {
+pub fn genserver_pid(server: GenServer(Dynamic, reply)) -> Pid {
   genserver.pid(server)
 }
 
