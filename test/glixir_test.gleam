@@ -111,18 +111,29 @@ pub fn registry_basic_test() {
   logging.log(logging.Info, "🏪 Testing basic registry functionality")
 
   // Start registry using glixir function
-  case glixir.start_registry("test_registry") {
+  case glixir.start_registry(atom.create("test_registry")) {
     Ok(_) -> {
       logging.log(logging.Info, "✅ Registry started")
 
       // Create and register a subject
       let test_subject = process.new_subject()
-      case glixir.register_subject("test_registry", "test_key", test_subject) {
+      case
+        glixir.register_subject(
+          atom.create("test_registry"),
+          atom.create("test_key"),
+          test_subject,
+        )
+      {
         Ok(_) -> {
           logging.log(logging.Info, "✅ Subject registered")
 
           // Look it up
-          case glixir.lookup_subject("test_registry", "test_key") {
+          case
+            glixir.lookup_subject(
+              atom.create("test_registry"),
+              atom.create("test_key"),
+            )
+          {
             Ok(found_subject) -> {
               logging.log(logging.Info, "✅ Subject found")
               process.send(found_subject, Echo("test"))
@@ -151,7 +162,12 @@ pub fn registry_error_test() {
   logging.log(logging.Info, "⚠️ Testing registry error handling")
 
   // Test lookup in non-existent registry
-  case glixir.lookup_subject("nonexistent_registry", "any_key") {
+  case
+    glixir.lookup_subject(
+      atom.create("nonexistent_registry"),
+      atom.create("any_key"),
+    )
+  {
     Ok(_) -> {
       logging.log(
         logging.Error,
@@ -166,9 +182,14 @@ pub fn registry_error_test() {
       )
 
       // Test lookup of non-existent key in existing registry
-      case glixir.start_registry("error_test_registry") {
+      case glixir.start_registry(atom.create("error_test_registry")) {
         Ok(_) -> {
-          case glixir.lookup_subject("error_test_registry", "missing_key") {
+          case
+            glixir.lookup_subject(
+              atom.create("error_test_registry"),
+              atom.create("missing_key"),
+            )
+          {
             Ok(_) -> {
               logging.log(
                 logging.Error,

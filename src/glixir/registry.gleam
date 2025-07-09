@@ -1,12 +1,12 @@
 //// Registry support for Subject lookup with dynamic spawning
-//// 
+////
 //// This module provides a Gleam-friendly interface to Elixir's Registry,
 //// using our Elixir helper module for clean data conversion.
 
 import gleam/dynamic.{type Dynamic}
+import gleam/erlang/atom
 import gleam/erlang/process.{type Pid, type Subject}
 import gleam/string
-import logging
 
 /// Opaque type representing a registry process
 pub opaque type Registry {
@@ -84,7 +84,6 @@ fn unregister_subject_ffi(
 // HELPER FUNCTIONS
 // ============================================================================
 
-// Helper to convert registry keys enum to string
 fn keys_to_string(keys: RegistryKeys) -> String {
   case keys {
     Unique -> "unique"
@@ -98,27 +97,33 @@ fn keys_to_string(keys: RegistryKeys) -> String {
 
 /// Start a new Registry with the given name and key type
 pub fn start_registry(
-  name: String,
+  name: atom.Atom,
   keys: RegistryKeys,
 ) -> Result(Registry, RegistryError) {
-  case start_registry_ffi(name, keys_to_string(keys)) {
+  case start_registry_ffi(atom.to_string(name), keys_to_string(keys)) {
     RegistryStartOk(pid) -> Ok(Registry(pid))
     RegistryStartError(reason) -> Error(StartError(string.inspect(reason)))
   }
 }
 
 /// Start a unique key registry (most common use case)
-pub fn start_unique_registry(name: String) -> Result(Registry, RegistryError) {
+pub fn start_unique_registry(name: atom.Atom) -> Result(Registry, RegistryError) {
   start_registry(name, Unique)
 }
 
 /// Register a Subject with a key in the registry
 pub fn register_subject(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
   subject: Subject(message),
 ) -> Result(Nil, RegistryError) {
-  case register_subject_ffi(registry_name, key, subject) {
+  case
+    register_subject_ffi(
+      atom.to_string(registry_name),
+      atom.to_string(key),
+      subject,
+    )
+  {
     RegistryRegisterOk -> Ok(Nil)
     RegistryRegisterError(reason) ->
       Error(RegisterError(string.inspect(reason)))
@@ -127,10 +132,10 @@ pub fn register_subject(
 
 /// Look up a Subject by key in the registry
 pub fn lookup_subject(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
 ) -> Result(Subject(message), RegistryError) {
-  case lookup_subject_ffi(registry_name, key) {
+  case lookup_subject_ffi(atom.to_string(registry_name), atom.to_string(key)) {
     RegistryLookupOk(subject) -> Ok(subject)
     RegistryLookupNotFound -> Error(NotFound)
     RegistryLookupError(reason) -> Error(LookupError(string.inspect(reason)))
@@ -139,10 +144,12 @@ pub fn lookup_subject(
 
 /// Unregister a key from the registry
 pub fn unregister_subject(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
 ) -> Result(Nil, RegistryError) {
-  case unregister_subject_ffi(registry_name, key) {
+  case
+    unregister_subject_ffi(atom.to_string(registry_name), atom.to_string(key))
+  {
     RegistryUnregisterOk -> Ok(Nil)
     RegistryUnregisterError(reason) ->
       Error(UnregisterError(string.inspect(reason)))
@@ -155,8 +162,8 @@ pub fn unregister_subject(
 
 /// Register a subject with a custom key
 pub fn register_with_key(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
   subject: Subject(message),
 ) -> Result(Nil, RegistryError) {
   register_subject(registry_name, key, subject)
@@ -164,16 +171,16 @@ pub fn register_with_key(
 
 /// Look up a subject by custom key
 pub fn lookup_with_key(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
 ) -> Result(Subject(message), RegistryError) {
   lookup_subject(registry_name, key)
 }
 
 /// Unregister a subject by custom key
 pub fn unregister_with_key(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
 ) -> Result(Nil, RegistryError) {
   unregister_subject(registry_name, key)
 }

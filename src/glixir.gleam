@@ -102,36 +102,36 @@ pub fn pubsub_unsubscribe(
 //
 
 /// Start a unique registry for Subject lookup
-pub fn start_registry(name: String) -> Result(Registry, RegistryError) {
-  logging.log(logging.Debug, "Starting registry: " <> name)
+pub fn start_registry(name: atom.Atom) -> Result(Registry, RegistryError) {
+  logging.log(logging.Debug, "Starting registry: " <> atom.to_string(name))
   registry.start_unique_registry(name)
 }
 
 /// Register a Subject with a key in the registry
 pub fn register_subject(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
   subject: Subject(message),
 ) -> Result(Nil, RegistryError) {
-  logging.log(logging.Debug, "Registering subject: " <> key)
+  logging.log(logging.Debug, "Registering subject: " <> atom.to_string(key))
   registry.register_subject(registry_name, key, subject)
 }
 
 /// Look up a Subject by key in the registry
 pub fn lookup_subject(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
 ) -> Result(Subject(message), RegistryError) {
-  logging.log(logging.Debug, "Looking up subject: " <> key)
+  logging.log(logging.Debug, "Looking up subject: " <> atom.to_string(key))
   registry.lookup_subject(registry_name, key)
 }
 
 /// Unregister a Subject from the registry
 pub fn unregister_subject(
-  registry_name: String,
-  key: String,
+  registry_name: atom.Atom,
+  key: atom.Atom,
 ) -> Result(Nil, RegistryError) {
-  logging.log(logging.Debug, "Unregistering subject: " <> key)
+  logging.log(logging.Debug, "Unregistering subject: " <> atom.to_string(key))
   registry.unregister_subject(registry_name, key)
 }
 
