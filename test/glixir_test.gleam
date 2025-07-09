@@ -1232,7 +1232,8 @@ pub fn agent_integration_test() {
         }
       }
 
-      let _ = glixir.stop_agent(agent)
+      // Pass Atom reason for stop (e.g., atom.create("normal"))
+      let _ = glixir.stop_agent(agent, atom.create("normal"))
       True |> should.be_true
     }
     Error(_) -> {

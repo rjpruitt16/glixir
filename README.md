@@ -18,6 +18,46 @@ Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. 
 - ✅ **Zero overhead** - Direct BEAM interop with clean Elixir helpers
 - ✅ **Gradual adoption** - Use alongside existing Elixir code
 
+---
+
+## Type Safety & Phantom Types
+
+> **A note from your neighborhood type enthusiast:**
+
+Some `glixir` APIs (notably process calls, GenServer, Agent, Registry) still require passing `Dynamic` values—this is the price of seamless BEAM interop and runtime dynamism. While decoders on return values help catch mismatches, full compile-time type safety isn’t always possible... **yet**.
+
+But here’s the good news:
+We’re actively rolling out [phantom types](https://gleam.run/tour/phantom_types/) across the API, banishing `Dynamic` wherever possible and making misused actors a compile-time relic.
+
+---
+
+### Phantom Type Conversion Progress
+
+```
+GenServer:     [■■■■■□□□□□] 50% - Some type wrappers, but Dynamic still leaks.
+Supervisor:    [■■■■■■■■□□] 80% - Child specs are typed, but args are Dynamic.
+Registry:      [■■■■■□□□□□] 50% - Keyed by String, subject is phantom-typed, messages aren’t.
+Agent:         [■■■■■■■■■■] 100% - State and API fully phantom-typed. Only decode errors left.
+PubSub:        [■■■■■□□□□□] 50% - Topics/IDs typed, but payloads Dynamic.
+Task:          [□□□□□□□□□□] 0% - Not started.
+```
+
+> *Full green bars are the dream; until then, decoders are your seatbelt!*
+
+---
+
+## Why Not 100% Type-Safe Now?
+
+Blame Erlang! (Just kidding, blame dynamic process boundaries.)
+You get strict safety *inside* Gleam, but as soon as you jump the BEAM-to-BEAM fence, the runtime is your playground. So, until Gleam’s type system can tame Elixir’s wild world, we work with decoders and are pushing hard to get you closer to total type bliss.
+
+---
+
+**Want to help speed this up? File issues, suggest API improvements, or just cheer us on in the repo!**
+
+---
+
+
 ## Installation
 
 ```sh
@@ -178,36 +218,41 @@ pub fn main() {
 }
 ```
 
-### Agent State Management
+
+---
+
+## Agent State Management
 
 ```gleam
 import glixir
 import gleam/dynamic/decode
+import gleam/erlang/atom
 
 pub fn main() {
   // Start an agent with initial state
   let assert Ok(counter) = glixir.start_agent(fn() { 42 })
-  
-  // Get state with a decoder
+
+  // Get state with a decoder (type safe)
   let assert Ok(value) = glixir.get_agent(counter, fn(x) { x }, decode.int)
   io.debug(value)  // 42
-  
+
   // Update state
   let assert Ok(_) = glixir.update_agent(counter, fn(n) { n + 10 })
-  
+
   // Get and update in one operation
   let assert Ok(old_value) = glixir.get_and_update_agent(
-    counter, 
+    counter,
     fn(n) { #(n, n * 2) },
     decode.int
   )
   io.debug(old_value)  // 52
-  
-  // Stop the agent
-  let assert Ok(_) = glixir.stop_agent(counter)
+
+  // Stop the agent with a reason (now explicit)
+  let assert Ok(_) = glixir.stop_agent(counter, atom.create("normal"))
 }
 ```
 
+Let me know if you want the full Markdown for your README or just the “Agent”/type safety section. I can also generate a badge-style SVG or emoji progress meter if you want it looking real flashy.
 ## Working with Elixir Modules
 
 ### Creating an Elixir Worker

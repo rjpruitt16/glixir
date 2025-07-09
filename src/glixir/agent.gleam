@@ -1,7 +1,5 @@
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
-
-// Import Decoder type and rename run to avoid conflict if needed, or just `run`
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
 import gleam/result
@@ -54,16 +52,16 @@ pub fn start(initial_fun: fn() -> a) -> Result(Agent, AgentError) {
   }
 }
 
-/// Start an Agent with a name
+/// Start an Agent with a registered name (now takes Atom for name)
 pub fn start_named(
-  name: String,
+  name: Atom,
   initial_fun: fn() -> a,
 ) -> Result(Agent, AgentError) {
-  let name_atom = atom.create(name)
   let options = [
     dynamic.array([
       atom.to_dynamic(atom.create("name")),
-      atom.to_dynamic(name_atom),
+      // still need the key atom
+      atom.to_dynamic(name),
     ]),
   ]
   case agent_start_link(initial_fun, options) {
@@ -83,9 +81,7 @@ pub fn get(
   let result_dynamic = agent_get(pid, fun, 5000)
   decode.run(result_dynamic, decoder)
   |> result.map_error(string.inspect)
-  // Convert List(DecodeError) to String
   |> result.map_error(DecodeError)
-  // Wrap in AgentError
 }
 
 /// Get with custom timeout
@@ -100,15 +96,12 @@ pub fn get_timeout(
   let result_dynamic = agent_get(pid, fun, timeout)
   decode.run(result_dynamic, decoder)
   |> result.map_error(string.inspect)
-  // Convert List(DecodeError) to String
   |> result.map_error(DecodeError)
-  // Wrap in AgentError
 }
 
 /// Update the state synchronously
 pub fn update(agent: Agent, fun: fn(a) -> a) -> Result(Nil, AgentError) {
   let Agent(pid) = agent
-
   case atom.to_string(agent_update(pid, fun, 5000)) {
     "ok" -> Ok(Nil)
     _ -> Error(AgentDown)
@@ -133,17 +126,13 @@ pub fn get_and_update(
   let result_dynamic = agent_get_and_update(pid, fun, 5000)
   decode.run(result_dynamic, decoder)
   |> result.map_error(string.inspect)
-  // Convert List(DecodeError) to String
   |> result.map_error(DecodeError)
-  // Wrap in AgentError
 }
 
-/// Stop an Agent
-pub fn stop(agent: Agent) -> Result(Nil, AgentError) {
+/// Stop an Agent (now requires Atom reason)
+pub fn stop(agent: Agent, reason: Atom) -> Result(Nil, AgentError) {
   let Agent(pid) = agent
-  let normal = atom.create("normal")
-
-  case atom.to_string(agent_stop(pid, normal, 5000)) {
+  case atom.to_string(agent_stop(pid, reason, 5000)) {
     "ok" -> Ok(Nil)
     _ -> Error(AgentDown)
   }

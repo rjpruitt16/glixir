@@ -1,8 +1,8 @@
-//// glixir - Enhanced with Subject support for proper message passing
 //// 
 //// This module provides a unified API for working with OTP processes from Gleam.
 //// Now includes registry support for Subject lookup.
 
+/// glixir - Enhanced with Subject support for proper message passing
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/erlang/atom
@@ -435,10 +435,10 @@ pub fn start_agent(initial_fun: fn() -> a) -> Result(Agent, AgentError) {
 
 /// Start an Agent with a name
 pub fn start_agent_named(
-  name: String,
+  name: atom.Atom,
   initial_fun: fn() -> a,
 ) -> Result(Agent, AgentError) {
-  logging.log(logging.Debug, "Starting named Agent: " <> name)
+  logging.log(logging.Debug, "Starting named Agent: " <> atom.to_string(name))
   agent.start_named(name, initial_fun)
 }
 
@@ -480,10 +480,13 @@ pub fn get_and_update_agent(
   agent.get_and_update(agent, fun, decoder)
 }
 
-/// Stop an Agent
-pub fn stop_agent(agent: Agent) -> Result(Nil, AgentError) {
-  logging.log(logging.Debug, "Stopping Agent")
-  agent.stop(agent)
+/// Stop an Agent with explicit reason (caller supplies Atom)
+pub fn stop_agent(agent: Agent, reason: atom.Atom) -> Result(Nil, AgentError) {
+  logging.log(
+    logging.Debug,
+    "Stopping Agent with reason: " <> atom.to_string(reason),
+  )
+  agent.stop(agent, reason)
 }
 
 /// Get the PID of an Agent
