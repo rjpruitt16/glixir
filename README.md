@@ -31,8 +31,7 @@ We’re actively rolling out [phantom types](https://gleam.run/tour/phantom_type
 
 ---
 
-### Phantom Type Conversion Progress
-
+### Type safety level
 ```
 GenServer:     [■■■■■■□□□□] 60% - Explicit atom/msg boundary, type wrappers for all ops. Dynamic still leaks on BEAM interop.
 Supervisor:    [■■■■■■■■□□] 80% - Child specs are typed, but args are Dynamic.
