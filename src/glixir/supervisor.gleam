@@ -222,9 +222,9 @@ fn spec_to_map(spec: SimpleChildSpec) -> Dynamic {
 
 /// Start a named dynamic supervisor
 pub fn start_dynamic_supervisor_named(
-  name: String,
+  name: atom.Atom,
 ) -> Result(Supervisor, SupervisorError) {
-  case start_dynamic_supervisor_named_ffi(name) {
+  case start_dynamic_supervisor_named_ffi(atom.to_string(name)) {
     DynamicSupervisorOk(pid) -> Ok(Supervisor(pid))
     DynamicSupervisorError(reason) -> Error(StartError(string.inspect(reason)))
   }

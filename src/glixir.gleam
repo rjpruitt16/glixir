@@ -166,17 +166,20 @@ pub fn start_supervisor_simple() -> Result(Supervisor, SupervisorError) {
 
 /// Start a named supervisor using DynamicSupervisor
 pub fn start_supervisor_named(
-  name: String,
+  name: atom.Atom,
   _additional_options: List(#(String, Dynamic)),
 ) -> Result(Supervisor, SupervisorError) {
-  logging.log(logging.Debug, "Starting named supervisor: " <> name)
+  logging.log(
+    logging.Debug,
+    "Starting named supervisor: " <> atom.to_string(name),
+  )
 
   let result = supervisor.start_dynamic_supervisor_named(name)
   case result {
     Ok(sup) -> {
       logging.log(
         logging.Info,
-        "Named supervisor '" <> name <> "' started successfully",
+        "Named supervisor '" <> atom.to_string(name) <> "' started successfully",
       )
       Ok(sup)
     }
@@ -184,7 +187,7 @@ pub fn start_supervisor_named(
       logging.log(
         logging.Error,
         "Named supervisor '"
-          <> name
+          <> atom.to_string(name)
           <> "' start failed: "
           <> string.inspect(error),
       )

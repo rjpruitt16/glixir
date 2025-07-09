@@ -265,12 +265,14 @@ pub fn simple_supervisor_test() {
 pub fn named_supervisor_test() {
   logging.log(logging.Info, "🏷️ Testing named supervisor")
 
-  case glixir.start_supervisor_named("test_named_supervisor", []) {
+  case glixir.start_supervisor_named(atom.create("test_named_supervisor"), []) {
     Ok(_supervisor) -> {
       logging.log(logging.Info, "✅ Named supervisor started successfully!")
 
       // Try to start another with the same name (should fail)
-      case glixir.start_supervisor_named("test_named_supervisor", []) {
+      case
+        glixir.start_supervisor_named(atom.create("test_named_supervisor"), [])
+      {
         Ok(_) -> {
           logging.log(
             logging.Warning,
