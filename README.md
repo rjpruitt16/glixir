@@ -56,6 +56,17 @@ You get strict safety *inside* Gleam, but as soon as you jump the BEAM-to-BEAM f
 
 ---
 
+## ⚡ Atom Safety & Fail-Fast API
+
+**glixir** now requires all process, registry, and module names to be existing atoms—typos or missing modules crash immediately with `{bad_atom, ...}`.
+
+- Avoids BEAM atom leaks and silent bugs.
+- If you typo or use a non-existent module, you’ll see a *loud* error.
+- Pro-tip: Always reference the real module, or pre-load it in Elixir before calling from Gleam.
+
+_This makes glixir safer by default—don’t trust user input as atom names!_
+
+---
 
 ## Installation
 
