@@ -326,46 +326,6 @@ pub fn count_children(supervisor_instance: Supervisor) -> ChildCounts {
 // GENSERVER FUNCTIONS
 //
 
-/// Start a simple GenServer with one argument
-pub fn start_simple_genserver(
-  module: String,
-  initial_state: String,
-) -> Result(GenServer, GenServerError) {
-  genserver.start_link(module, initial_state)
-}
-
-/// Ping a GenServer (returns :pong if successful) 
-pub fn ping_genserver(server: GenServer) -> Result(Dynamic, GenServerError) {
-  genserver.call(server, atom.create("ping") |> atom.to_dynamic)
-}
-
-/// Get state from a GenServer
-pub fn get_genserver_state(server: GenServer) -> Result(Dynamic, GenServerError) {
-  genserver.call(server, atom.create("get_state") |> atom.to_dynamic)
-}
-
-/// Start a GenServer using Module.start_link/1
-pub fn start_genserver(
-  module: String,
-  args: a,
-) -> Result(GenServer, GenServerError) {
-  logging.log(logging.Debug, "Starting GenServer: " <> module)
-  genserver.start_link(module, args)
-}
-
-/// Start a named GenServer
-pub fn start_genserver_named(
-  module: String,
-  name: String,
-  args: a,
-) -> Result(GenServer, GenServerError) {
-  logging.log(
-    logging.Debug,
-    "Starting named GenServer: " <> module <> " as " <> name,
-  )
-  genserver.start_link_named(module, name, args)
-}
-
 /// Send a synchronous call to the GenServer (5s timeout)
 pub fn call_genserver(
   server: GenServer,
@@ -383,14 +343,6 @@ pub fn call_genserver_timeout(
   genserver.call_timeout(server, request, timeout)
 }
 
-/// Call a named GenServer
-pub fn call_genserver_named(
-  name: String,
-  request: a,
-) -> Result(b, GenServerError) {
-  genserver.call_named(name, request)
-}
-
 /// Send an asynchronous cast to the GenServer
 pub fn cast_genserver(
   server: GenServer,
@@ -399,16 +351,65 @@ pub fn cast_genserver(
   genserver.cast(server, request)
 }
 
+/// Start a GenServer (Elixir module name, args)
+pub fn start_genserver(
+  module: String,
+  args: a,
+) -> Result(GenServer, GenServerError) {
+  genserver.start_link(module, args)
+}
+
+/// Start a named GenServer (Elixir module name, atom name, args)
+pub fn start_genserver_named(
+  module: String,
+  name: atom.Atom,
+  args: a,
+) -> Result(GenServer, GenServerError) {
+  genserver.start_link_named(module, atom.to_string(name), args)
+}
+
+/// Start a simple GenServer with one argument
+pub fn start_simple_genserver(
+  module: String,
+  initial_state: String,
+) -> Result(GenServer, GenServerError) {
+  genserver.start_link(module, initial_state)
+}
+
+/// Ping a GenServer (user must pass atom)
+pub fn ping_genserver(
+  server: GenServer,
+  msg: atom.Atom,
+) -> Result(Dynamic, GenServerError) {
+  genserver.call(server, msg)
+}
+
+/// Get state (user must pass atom)
+pub fn get_genserver_state(
+  server: GenServer,
+  msg: atom.Atom,
+) -> Result(Dynamic, GenServerError) {
+  genserver.call(server, msg)
+}
+
+/// Call a named GenServer
+pub fn call_genserver_named(
+  name: atom.Atom,
+  request: a,
+) -> Result(b, GenServerError) {
+  genserver.call_named(name, request)
+}
+
 /// Cast to a named GenServer
 pub fn cast_genserver_named(
-  name: String,
+  name: atom.Atom,
   request: a,
 ) -> Result(Nil, GenServerError) {
   genserver.cast_named(name, request)
 }
 
-/// Look up a GenServer by registered name
-pub fn lookup_genserver(name: String) -> Result(GenServer, GenServerError) {
+/// Look up a GenServer by registered Atom name
+pub fn lookup_genserver(name: atom.Atom) -> Result(GenServer, GenServerError) {
   genserver.lookup_name(name)
 }
 

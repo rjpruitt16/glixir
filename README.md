@@ -34,7 +34,7 @@ We’re actively rolling out [phantom types](https://gleam.run/tour/phantom_type
 ### Phantom Type Conversion Progress
 
 ```
-GenServer:     [■■■■■□□□□□] 50% - Some type wrappers, but Dynamic still leaks.
+GenServer:     [■■■■■■□□□□] 60% - Explicit atom/msg boundary, type wrappers for all ops. Dynamic still leaks on BEAM interop.
 Supervisor:    [■■■■■■■■□□] 80% - Child specs are typed, but args are Dynamic.
 Registry:      [■■■■■□□□□□] 50% - Keyed by String, subject is phantom-typed, messages aren’t.
 Agent:         [■■■■■■■■■■] 100% - State and API fully phantom-typed. Only decode errors left.
@@ -196,25 +196,29 @@ pub fn main() {
 ### GenServer Interop
 
 ```gleam
+
 import glixir
+import gleam/erlang/atom
+import gleam/dynamic
+import gleam/dynamic/decode
 
 pub fn main() {
   // Start an Elixir GenServer from Gleam
   let assert Ok(server) = glixir.start_genserver("MyApp.Counter", dynamic.int(0))
-  
-  // Type-safe calls with custom decoders
-  let assert Ok(count) = glixir.call_genserver(server, dynamic.string("get"), decode.int)
+
+  // Type-safe calls (no atom.create magic: you supply the atom/message!)
+  let assert Ok(count) = glixir.call_genserver(server, atom.create("get_count"), decode.int)
   io.debug(count)  // 0
-  
-  // Cast messages (fire and forget)
-  let assert Ok(_) = glixir.cast_genserver(server, dynamic.string("increment"))
-  
+
+  // Cast messages (fire and forget, explicit atom!)
+  let assert Ok(_) = glixir.cast_genserver(server, atom.create("increment"))
+
   // Call again to see the change
-  let assert Ok(count) = glixir.call_genserver(server, dynamic.string("get"), decode.int)
+  let assert Ok(count) = glixir.call_genserver(server, atom.create("get_count"), decode.int)
   io.debug(count)  // 1
-  
-  // Stop the GenServer
-  let assert Ok(_) = glixir.stop_genserver(server)
+
+  // Stop the GenServer - just cast the stop atom yourself!
+  let assert Ok(_) = glixir.cast_genserver(server, atom.create("stop"))
 }
 ```
 

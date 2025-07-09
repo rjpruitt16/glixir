@@ -164,10 +164,7 @@ pub fn start_link_named(
 
 /// Send a synchronous call to the GenServer (5s timeout)
 pub fn call(server: GenServer, request: a) -> Result(b, GenServerError) {
-  logging.log(
-    logging.Debug,
-    "📞 GenServer.call with request: " <> string.inspect(request),
-  )
+  // No atom.create here: request must be constructed by caller, e.g. atom, tuple, int, etc.
   call_timeout(server, request, 5000)
 }
 
@@ -178,149 +175,53 @@ pub fn call_timeout(
   timeout: Int,
 ) -> Result(b, GenServerError) {
   let GenServer(pid) = server
-  logging.log(
-    logging.Debug,
-    "📞⏱️ GenServer.call_timeout to PID "
-      <> string.inspect(pid)
-      <> " with timeout "
-      <> string.inspect(timeout),
-  )
-  logging.log(logging.Debug, "📞⏱️ Request: " <> string.inspect(request))
-
   let response = gen_server_call(pid, request, timeout)
-  logging.log(
-    logging.Debug,
-    "📞✅ GenServer call response: " <> string.inspect(response),
-  )
-
-  // For now, we'll just return the response directly
-  // Users can check for error patterns themselves
   Ok(unsafe_coerce(response))
 }
 
-/// Call a named GenServer
-pub fn call_named(name: String, request: a) -> Result(b, GenServerError) {
-  logging.log(
-    logging.Debug,
-    "📞🏷️ GenServer.call_named to '"
-      <> name
-      <> "' with request: "
-      <> string.inspect(request),
-  )
-
+/// Call a named GenServer (now requires Atom name)
+pub fn call_named(name: Atom, request: a) -> Result(b, GenServerError) {
   case lookup_name(name) {
-    Ok(server) -> {
-      logging.log(logging.Debug, "📞🏷️✅ Found named GenServer, making call")
-      call(server, request)
-    }
-    Error(e) -> {
-      logging.log(
-        logging.Error,
-        "📞🏷️❌ Named GenServer lookup failed: " <> string.inspect(e),
-      )
-      Error(e)
-    }
+    Ok(server) -> call(server, request)
+    Error(e) -> Error(e)
   }
 }
 
-/// Send an asynchronous cast to the GenServer
+/// Cast (fire and forget)
 pub fn cast(server: GenServer, request: a) -> Result(Nil, GenServerError) {
   let GenServer(pid) = server
-  logging.log(
-    logging.Debug,
-    "📨 GenServer.cast to PID "
-      <> string.inspect(pid)
-      <> " with request: "
-      <> string.inspect(request),
-  )
-
   let result = gen_server_cast(pid, request)
-  logging.log(
-    logging.Debug,
-    "📨✅ GenServer cast result: " <> string.inspect(result),
-  )
-
   case atom.to_string(result) {
-    "ok" -> {
-      logging.log(logging.Debug, "📨✅ Cast successful")
-      Ok(Nil)
-    }
-    other -> {
-      logging.log(logging.Error, "📨❌ Cast failed with: " <> other)
-      Error(CastError(other))
-    }
+    "ok" -> Ok(Nil)
+    other -> Error(CastError(other))
   }
 }
 
-/// Cast to a named GenServer
-pub fn cast_named(name: String, request: a) -> Result(Nil, GenServerError) {
-  logging.log(
-    logging.Debug,
-    "📨🏷️ GenServer.cast_named to '"
-      <> name
-      <> "' with request: "
-      <> string.inspect(request),
-  )
-
+/// Cast to a named GenServer (explicit Atom name)
+pub fn cast_named(name: Atom, request: a) -> Result(Nil, GenServerError) {
   case lookup_name(name) {
-    Ok(server) -> {
-      logging.log(logging.Debug, "📨🏷️✅ Found named GenServer, making cast")
-      cast(server, request)
-    }
-    Error(e) -> {
-      logging.log(
-        logging.Error,
-        "📨🏷️❌ Named GenServer lookup failed: " <> string.inspect(e),
-      )
-      Error(e)
-    }
+    Ok(server) -> cast(server, request)
+    Error(e) -> Error(e)
   }
+}
+
+/// Look up a GenServer by registered Atom name
+pub fn lookup_name(name: Atom) -> Result(GenServer, GenServerError) {
+  let pid_result = erlang_whereis(name)
+  case dynamic.classify(pid_result) {
+    "Pid" -> Ok(GenServer(unsafe_coerce(pid_result)))
+    _ -> Error(NotFound(atom.to_string(name)))
+  }
+}
+
+/// Stop a GenServer gracefully (you now call cast or cast_named with atom)
+pub fn stop(server: GenServer) -> Result(Nil, GenServerError) {
+  // Caller must do: genserver.cast(server, atom)
+  Error(CastError("Use cast with explicit Atom message for stop"))
 }
 
 /// Get the PID of a GenServer
 pub fn pid(server: GenServer) -> Pid {
   let GenServer(p) = server
-  logging.log(logging.Debug, "🆔 GenServer.pid returning: " <> string.inspect(p))
   p
-}
-
-/// Look up a GenServer by registered name
-pub fn lookup_name(name: String) -> Result(GenServer, GenServerError) {
-  logging.log(logging.Debug, "🔍 GenServer.lookup_name for: '" <> name <> "'")
-
-  let name_atom = binary_to_atom(name)
-  logging.log(
-    logging.Debug,
-    "🔍 Created lookup atom: " <> string.inspect(name_atom),
-  )
-
-  let pid_result = erlang_whereis(name_atom)
-  logging.log(logging.Debug, "🔍 whereis result: " <> string.inspect(pid_result))
-
-  case dynamic.classify(pid_result) {
-    "Pid" -> {
-      logging.log(logging.Info, "🔍✅ Found GenServer PID for '" <> name <> "'")
-      Ok(GenServer(unsafe_coerce(pid_result)))
-    }
-    "Atom" -> {
-      logging.log(
-        logging.Warning,
-        "🔍❌ GenServer '" <> name <> "' returned atom (likely 'undefined')",
-      )
-      Error(NotFound(name))
-    }
-    other -> {
-      logging.log(
-        logging.Warning,
-        "🔍❌ GenServer '" <> name <> "' not found, got type: " <> other,
-      )
-      Error(NotFound(name))
-    }
-  }
-}
-
-/// Stop a GenServer gracefully
-pub fn stop(server: GenServer) -> Result(Nil, GenServerError) {
-  logging.log(logging.Debug, "🛑 GenServer.stop called")
-  cast(server, atom.create("stop"))
 }
