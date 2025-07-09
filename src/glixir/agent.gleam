@@ -5,12 +5,10 @@ import gleam/erlang/process.{type Pid}
 import gleam/result
 import gleam/string
 
-/// Opaque type representing an Agent process
-pub opaque type Agent {
+pub opaque type Agent(state) {
   Agent(pid: Pid)
 }
 
-/// Errors that can occur with Agents
 pub type AgentError {
   StartError(reason: String)
   Timeout
@@ -18,51 +16,44 @@ pub type AgentError {
   DecodeError(String)
 }
 
-// FFI functions for Elixir Agent
 @external(erlang, "Elixir.Agent", "start_link")
 fn agent_start_link(
-  fun: fn() -> a,
+  fun: fn() -> state,
   options: List(Dynamic),
 ) -> Result(Pid, Dynamic)
 
 @external(erlang, "Elixir.Agent", "get")
-fn agent_get(agent: Pid, fun: fn(a) -> b, timeout: Int) -> Dynamic
+fn agent_get(agent: Pid, fun: fn(state) -> a, timeout: Int) -> Dynamic
 
 @external(erlang, "Elixir.Agent", "update")
-fn agent_update(agent: Pid, fun: fn(a) -> a, timeout: Int) -> Atom
+fn agent_update(agent: Pid, fun: fn(state) -> state, timeout: Int) -> Atom
 
 @external(erlang, "Elixir.Agent", "get_and_update")
 fn agent_get_and_update(
   agent: Pid,
-  fun: fn(a) -> #(b, a),
+  fun: fn(state) -> #(a, state),
   timeout: Int,
 ) -> Dynamic
 
 @external(erlang, "Elixir.Agent", "cast")
-fn agent_cast(agent: Pid, fun: fn(a) -> a) -> Atom
+fn agent_cast(agent: Pid, fun: fn(state) -> state) -> Atom
 
 @external(erlang, "Elixir.Agent", "stop")
 fn agent_stop(agent: Pid, reason: Atom, timeout: Int) -> Atom
 
-/// Start a new Agent with initial state
-pub fn start(initial_fun: fn() -> a) -> Result(Agent, AgentError) {
+pub fn start(initial_fun: fn() -> state) -> Result(Agent(state), AgentError) {
   case agent_start_link(initial_fun, []) {
     Ok(pid) -> Ok(Agent(pid))
     Error(reason) -> Error(StartError(string.inspect(reason)))
   }
 }
 
-/// Start an Agent with a registered name (now takes Atom for name)
 pub fn start_named(
   name: Atom,
-  initial_fun: fn() -> a,
-) -> Result(Agent, AgentError) {
+  initial_fun: fn() -> state,
+) -> Result(Agent(state), AgentError) {
   let options = [
-    dynamic.array([
-      atom.to_dynamic(atom.create("name")),
-      // still need the key atom
-      atom.to_dynamic(name),
-    ]),
+    dynamic.array([atom.to_dynamic(atom.create("name")), atom.to_dynamic(name)]),
   ]
   case agent_start_link(initial_fun, options) {
     Ok(pid) -> Ok(Agent(pid))
@@ -70,13 +61,11 @@ pub fn start_named(
   }
 }
 
-/// Get the current state
-/// Requires a decoder for the expected type `b`.
 pub fn get(
-  agent: Agent,
-  fun: fn(a) -> b,
-  decoder: Decoder(b),
-) -> Result(b, AgentError) {
+  agent: Agent(state),
+  fun: fn(state) -> a,
+  decoder: Decoder(a),
+) -> Result(a, AgentError) {
   let Agent(pid) = agent
   let result_dynamic = agent_get(pid, fun, 5000)
   decode.run(result_dynamic, decoder)
@@ -84,14 +73,12 @@ pub fn get(
   |> result.map_error(DecodeError)
 }
 
-/// Get with custom timeout
-/// Requires a decoder for the expected type `b`.
 pub fn get_timeout(
-  agent: Agent,
-  fun: fn(a) -> b,
+  agent: Agent(state),
+  fun: fn(state) -> a,
   timeout: Int,
-  decoder: Decoder(b),
-) -> Result(b, AgentError) {
+  decoder: Decoder(a),
+) -> Result(a, AgentError) {
   let Agent(pid) = agent
   let result_dynamic = agent_get(pid, fun, timeout)
   decode.run(result_dynamic, decoder)
@@ -99,8 +86,10 @@ pub fn get_timeout(
   |> result.map_error(DecodeError)
 }
 
-/// Update the state synchronously
-pub fn update(agent: Agent, fun: fn(a) -> a) -> Result(Nil, AgentError) {
+pub fn update(
+  agent: Agent(state),
+  fun: fn(state) -> state,
+) -> Result(Nil, AgentError) {
   let Agent(pid) = agent
   case atom.to_string(agent_update(pid, fun, 5000)) {
     "ok" -> Ok(Nil)
@@ -108,20 +97,17 @@ pub fn update(agent: Agent, fun: fn(a) -> a) -> Result(Nil, AgentError) {
   }
 }
 
-/// Update the state asynchronously
-pub fn cast(agent: Agent, fun: fn(a) -> a) -> Nil {
+pub fn cast(agent: Agent(state), fun: fn(state) -> state) -> Nil {
   let Agent(pid) = agent
   let _ = agent_cast(pid, fun)
   Nil
 }
 
-/// Get and update in one operation
-/// Requires a decoder for the expected type `b`.
 pub fn get_and_update(
-  agent: Agent,
-  fun: fn(a) -> #(b, a),
-  decoder: Decoder(b),
-) -> Result(b, AgentError) {
+  agent: Agent(state),
+  fun: fn(state) -> #(a, state),
+  decoder: Decoder(a),
+) -> Result(a, AgentError) {
   let Agent(pid) = agent
   let result_dynamic = agent_get_and_update(pid, fun, 5000)
   decode.run(result_dynamic, decoder)
@@ -129,8 +115,7 @@ pub fn get_and_update(
   |> result.map_error(DecodeError)
 }
 
-/// Stop an Agent (now requires Atom reason)
-pub fn stop(agent: Agent, reason: Atom) -> Result(Nil, AgentError) {
+pub fn stop(agent: Agent(state), reason: Atom) -> Result(Nil, AgentError) {
   let Agent(pid) = agent
   case atom.to_string(agent_stop(pid, reason, 5000)) {
     "ok" -> Ok(Nil)
@@ -138,8 +123,7 @@ pub fn stop(agent: Agent, reason: Atom) -> Result(Nil, AgentError) {
   }
 }
 
-/// Get the PID of an Agent
-pub fn pid(agent: Agent) -> Pid {
+pub fn pid(agent: Agent(state)) -> Pid {
   let Agent(p) = agent
   p
 }

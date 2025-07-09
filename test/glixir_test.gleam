@@ -1165,11 +1165,8 @@ pub fn genserver_lifecycle_test() {
 
 pub fn agent_integration_test() {
   let initial_state = fn() { 42 }
-
   case glixir.start_agent(initial_state) {
     Ok(agent) -> {
-      logging.log(logging.Info, "✅ Agent started successfully")
-
       case glixir.get_agent(agent, fn(x) { x }, decode.int) {
         Ok(value) -> {
           value |> should.equal(42)

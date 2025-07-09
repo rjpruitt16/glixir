@@ -19,8 +19,8 @@ import logging
 pub type GenServer =
   genserver.GenServer
 
-pub type Agent =
-  agent.Agent
+pub type Agent(state) =
+  agent.Agent(state)
 
 pub type Supervisor =
   supervisor.Supervisor
@@ -431,33 +431,20 @@ pub fn genserver_pid(server: GenServer) -> Pid {
 // AGENT FUNCTIONS
 //
 
-/// Start a new Agent with initial state
-pub fn start_agent(initial_fun: fn() -> a) -> Result(Agent, AgentError) {
-  logging.log(logging.Debug, "Starting Agent")
-  agent.start(initial_fun)
+pub fn start_agent(state: fn() -> a) -> Result(Agent(a), AgentError) {
+  agent.start(state)
 }
 
-/// Start an Agent with a name
-pub fn start_agent_named(
-  name: atom.Atom,
-  initial_fun: fn() -> a,
-) -> Result(Agent, AgentError) {
-  logging.log(logging.Debug, "Starting named Agent: " <> atom.to_string(name))
-  agent.start_named(name, initial_fun)
-}
-
-/// Get the current state from an Agent
 pub fn get_agent(
-  agent: Agent,
+  agent: Agent(a),
   fun: fn(a) -> b,
   decoder: Decoder(b),
 ) -> Result(b, AgentError) {
   agent.get(agent, fun, decoder)
 }
 
-/// Get with custom timeout
 pub fn get_agent_timeout(
-  agent: Agent,
+  agent: Agent(a),
   fun: fn(a) -> b,
   timeout: Int,
   decoder: Decoder(b),
@@ -465,36 +452,27 @@ pub fn get_agent_timeout(
   agent.get_timeout(agent, fun, timeout, decoder)
 }
 
-/// Update the Agent state synchronously
-pub fn update_agent(agent: Agent, fun: fn(a) -> a) -> Result(Nil, AgentError) {
+pub fn update_agent(agent: Agent(a), fun: fn(a) -> a) -> Result(Nil, AgentError) {
   agent.update(agent, fun)
 }
 
-/// Update the Agent state asynchronously
-pub fn cast_agent(agent: Agent, fun: fn(a) -> a) -> Nil {
+pub fn cast_agent(agent: Agent(a), fun: fn(a) -> a) -> Nil {
   agent.cast(agent, fun)
 }
 
-/// Get and update in one operation
 pub fn get_and_update_agent(
-  agent: Agent,
+  agent: Agent(a),
   fun: fn(a) -> #(b, a),
   decoder: Decoder(b),
 ) -> Result(b, AgentError) {
   agent.get_and_update(agent, fun, decoder)
 }
 
-/// Stop an Agent with explicit reason (caller supplies Atom)
-pub fn stop_agent(agent: Agent, reason: atom.Atom) -> Result(Nil, AgentError) {
-  logging.log(
-    logging.Debug,
-    "Stopping Agent with reason: " <> atom.to_string(reason),
-  )
+pub fn stop_agent(agent: Agent(a), reason: atom.Atom) -> Result(Nil, AgentError) {
   agent.stop(agent, reason)
 }
 
-/// Get the PID of an Agent
-pub fn agent_pid(agent: Agent) -> Pid {
+pub fn agent_pid(agent: Agent(a)) -> Pid {
   agent.pid(agent)
 }
 
