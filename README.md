@@ -36,12 +36,11 @@ Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. 
 ```
 
 GenServer:     [■■■■■■■■□□] 80% - Request/reply types enforced by Gleam, decoder required, but runtime BEAM interop can still fail if types disagree.
-Supervisor:    [■■■■■■■■□□] 80% - Child specs typed, args Dynamic.
-Registry:      [■■■■■□□□□□] 50% - Keyed by String, subject is phantom-typed, messages aren’t.
+Supervisor:    [■■■■■■■■■□] 90% - Phantom-typed with compile-time child spec validation, args/replies bounded by generics.
+Registry:      [■■■■■□□□□□] 50% - Keyed by String, subject is phantom-typed, messages aren't.
 Agent:         [■■■■■■■■■■] 100% - State and API fully generic and type safe!
 PubSub:        [■■■■■□□□□□] 50% - Topics/IDs typed, payloads Dynamic.
-Task:          [□□□□□□□□□□] 0% - Not started.
-````
+Task:          [□□□□□□□□□□] 0% - Not started.````
 
 > *Full green bars are the dream; until then, decoders are your seatbelt!*
 
@@ -161,6 +160,9 @@ pub fn main() {
 ```gleam
 import glixir
 import gleam/erlang/process
+import gleam/erlang/atom
+import gleam/dynamic
+import gleam/io
 
 pub type UserMessage {
   RecordMetric(name: String, value: Float)
@@ -169,36 +171,60 @@ pub type UserMessage {
 
 pub fn actor_discovery_example() {
   // Start registry for actor lookup
-  let assert Ok(_registry) = glixir.start_registry("user_actors")
+  let assert Ok(_registry) = glixir.start_registry(atom.create("user_actors"))
   
-  // Start supervisor for dynamic actors
-  let assert Ok(supervisor) = glixir.start_supervisor_simple()
+  // Start a type-safe dynamic supervisor
+  let assert Ok(supervisor) = glixir.start_dynamic_supervisor_named(
+    atom.create("user_supervisor")
+  )
   
-  // Spawn a user actor dynamically
+  // String encoder for user ID args
+  fn user_id_encode(user_id: String) -> List(dynamic.Dynamic) {
+    [dynamic.string(user_id)]
+  }
+  
+  // Simple decoder for replies
+  fn simple_decode(_d: dynamic.Dynamic) -> Result(String, String) {
+    Ok("started")
+  }
+  
+  // Create a type-safe child spec
   let user_spec = glixir.child_spec(
     id: "user_123",
     module: "MyApp.UserActor", 
     function: "start_link",
-    args: [dynamic.string("user_123")]
+    args: "user_123",  // Typed as String!
+    restart: glixir.permanent,
+    shutdown_timeout: 5000,
+    child_type: glixir.worker,
+    encode: user_id_encode,
   )
   
-  let assert Ok(user_pid) = glixir.start_child(supervisor, user_spec)
-  
-  // Actor registers itself in the registry
-  let user_subject = process.new_subject()
-  let assert Ok(_) = glixir.register_subject("user_actors", "user_123", user_subject)
-  
-  // Later... find and message the actor from anywhere!
-  case glixir.lookup_subject("user_actors", "user_123") {
-    Ok(subject) -> {
-      process.send(subject, RecordMetric("page_views", 1.0))
-      io.println("Metric sent to user actor! 📊")
+  // Start the child with compile-time type safety
+  case glixir.start_dynamic_child(supervisor, user_spec, user_id_encode, simple_decode) {
+    glixir.ChildStarted(_user_pid, _reply) -> {
+      // Actor registers itself in the registry
+      let user_subject = process.new_subject()
+      let assert Ok(_) = glixir.register_subject(
+        atom.create("user_actors"), 
+        atom.create("user_123"), 
+        user_subject
+      )
+      
+      // Later... find and message the actor from anywhere!
+      case glixir.lookup_subject(atom.create("user_actors"), atom.create("user_123")) {
+        Ok(subject) -> {
+          process.send(subject, RecordMetric("page_views", 1.0))
+          io.println("Metric sent to user actor! 📊")
+        }
+        Error(_) -> io.println("User actor not found")
+      }
     }
-    Error(_) -> io.println("User actor not found")
+    glixir.StartChildError(error) -> {
+      io.println("Failed to start user actor: " <> error)
+    }
   }
-}
 ```
-
 ---
 
 ### GenServer Interop
