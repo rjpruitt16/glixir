@@ -5,8 +5,10 @@
 
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
-import gleam/erlang/atom
+import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid, type Subject}
+import gleam/json
+import gleam/list
 import gleam/option
 import gleam/string
 import glixir/agent
@@ -48,12 +50,18 @@ pub type RegistryKeys =
 pub type KeyEncoder(key_type) =
   registry.KeyEncoder(key_type)
 
-// PUBSUB
-pub type PubSub =
-  pubsub.PubSub
+// PUBSUB - PHANTOM TYPED
+pub type PubSub(message_type) =
+  pubsub.PubSub(message_type)
 
 pub type PubSubError =
   pubsub.PubSubError
+
+pub type MessageEncoder(message_type) =
+  pubsub.MessageEncoder(message_type)
+
+pub type MessageDecoder(message_type) =
+  pubsub.MessageDecoder(message_type)
 
 // SUPERVISOR - BOUNDED
 pub type DynamicSupervisor(child_args, child_reply) =
@@ -93,30 +101,47 @@ pub const worker = supervisor.Worker
 
 pub const supervisor_child = supervisor.SupervisorChild
 
-// =====================
-// PUBSUB
-// =====================
-pub fn start_pubsub(name: String) -> Result(PubSub, PubSubError) {
-  pubsub.start_pubsub(name)
+// Convenience encoders
+pub const string_encoder = pubsub.string_encoder
+
+pub const int_encoder = pubsub.int_encoder
+
+pub const string_decoder = pubsub.string_decoder
+
+pub const int_decoder = pubsub.int_decoder
+
+// ============================================================================
+// PUBSUB API FUNCTIONS (Fixed)
+// ============================================================================
+
+/// Start a phantom-typed PubSub system
+pub fn pubsub_start(name: Atom) -> Result(PubSub(message_type), PubSubError) {
+  pubsub.start(name)
 }
 
+/// Subscribe to a topic with message handling
 pub fn pubsub_subscribe(
-  pubsub_name: String,
+  pubsub_name: Atom,
   topic: String,
+  gleam_module: String,
+  gleam_function: String,
 ) -> Result(Nil, PubSubError) {
-  pubsub.subscribe(pubsub_name, topic)
+  pubsub.subscribe(pubsub_name, topic, gleam_module, gleam_function)
 }
 
+/// Broadcast a message to all subscribers
 pub fn pubsub_broadcast(
-  pubsub_name: String,
+  pubsub_name: Atom,
   topic: String,
-  message: Dynamic,
+  message: message_type,
+  encode: MessageEncoder(message_type),
 ) -> Result(Nil, PubSubError) {
-  pubsub.broadcast(pubsub_name, topic, message)
+  pubsub.broadcast(pubsub_name, topic, message, encode)
 }
 
+/// Unsubscribe from a topic
 pub fn pubsub_unsubscribe(
-  pubsub_name: String,
+  pubsub_name: Atom,
   topic: String,
 ) -> Result(Nil, PubSubError) {
   pubsub.unsubscribe(pubsub_name, topic)

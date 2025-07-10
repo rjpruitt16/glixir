@@ -32,49 +32,79 @@ pub fn spawn_test_process() -> Pid {
 }
 
 // ============================================================================
-// PUBSUB BASIC VERIFICATION TEST  
+// PUBSUB TYPED API WRAPPER VERIFICATION
 // ============================================================================
-pub fn pubsub_wrapper_integration_test() {
-  utils.debug_log(logging.Info, "🚀 Testing PubSub wrapper integration")
 
-  // Test 1: Start PubSub
-  case glixir.start_pubsub("integration_test") {
+pub fn handle_test_json(json_message: String) -> Nil {
+  utils.debug_log(logging.Info, "📨 Received: " <> json_message)
+  Nil
+}
+
+pub fn pubsub_typed_wrapper_test() {
+  utils.debug_log(logging.Info, "🎯 Testing typed PubSub wrapper")
+
+  let pubsub_name = atom.create("typed_wrapper_test")
+
+  // Verify our typed wrapper works
+  case glixir.pubsub_start(pubsub_name) {
     Ok(_pubsub) -> {
-      utils.debug_log(logging.Info, "✅ PubSub started")
+      utils.debug_log(logging.Info, "✅ Typed PubSub started")
 
-      // Test 2: Subscribe to a topic
-      case glixir.pubsub_subscribe("integration_test", "test_topic") {
+      // Test typed subscribe with all required parameters
+      case
+        glixir.pubsub_subscribe(
+          pubsub_name,
+          "typed_channel",
+          "glixir_test",
+          "handle_test_json",
+        )
+      {
         Ok(_) -> {
-          utils.debug_log(logging.Info, "✅ Subscribed to topic")
+          utils.debug_log(logging.Info, "✅ Typed subscribe works")
 
-          // Test 3: Broadcast a message
+          // Test typed broadcast with string encoder
           case
             glixir.pubsub_broadcast(
-              "integration_test",
-              "test_topic",
-              dynamic.string("Hello PubSub!"),
+              pubsub_name,
+              "typed_channel",
+              "Hello typed wrapper!",
+              glixir.string_encoder,
             )
           {
             Ok(_) -> {
-              utils.debug_log(logging.Info, "✅ Message broadcast")
+              utils.debug_log(logging.Info, "✅ Typed broadcast works")
 
-              // Give a moment for message delivery
-              process.sleep(10)
-
-              // Test 4: Unsubscribe
-              case glixir.pubsub_unsubscribe("integration_test", "test_topic") {
+              // Test with int encoder
+              case
+                glixir.pubsub_broadcast(
+                  pubsub_name,
+                  "typed_channel",
+                  42,
+                  glixir.int_encoder,
+                )
+              {
                 Ok(_) -> {
-                  utils.debug_log(logging.Info, "✅ Unsubscribed from topic")
-                  utils.debug_log(
-                    logging.Info,
-                    "🎉 PubSub wrapper fully functional!",
-                  )
-                  True |> should.be_true
+                  utils.debug_log(logging.Info, "✅ Int encoder works")
+
+                  // Test unsubscribe
+                  case glixir.pubsub_unsubscribe(pubsub_name, "typed_channel") {
+                    Ok(_) -> {
+                      utils.debug_log(logging.Info, "✅ Typed unsubscribe works")
+                      True |> should.be_true
+                    }
+                    Error(e) -> {
+                      logging.log(
+                        logging.Error,
+                        "❌ Typed unsubscribe failed: " <> string.inspect(e),
+                      )
+                      False |> should.be_true
+                    }
+                  }
                 }
                 Error(e) -> {
                   logging.log(
                     logging.Error,
-                    "❌ Unsubscribe failed: " <> string.inspect(e),
+                    "❌ Int encoder failed: " <> string.inspect(e),
                   )
                   False |> should.be_true
                 }
@@ -83,7 +113,7 @@ pub fn pubsub_wrapper_integration_test() {
             Error(e) -> {
               logging.log(
                 logging.Error,
-                "❌ Broadcast failed: " <> string.inspect(e),
+                "❌ Typed broadcast failed: " <> string.inspect(e),
               )
               False |> should.be_true
             }
@@ -92,14 +122,63 @@ pub fn pubsub_wrapper_integration_test() {
         Error(e) -> {
           logging.log(
             logging.Error,
-            "❌ Subscribe failed: " <> string.inspect(e),
+            "❌ Typed subscribe failed: " <> string.inspect(e),
           )
           False |> should.be_true
         }
       }
     }
     Error(e) -> {
-      logging.log(logging.Error, "❌ PubSub start failed: " <> string.inspect(e))
+      logging.log(
+        logging.Error,
+        "❌ Typed PubSub start failed: " <> string.inspect(e),
+      )
+      False |> should.be_true
+    }
+  }
+}
+
+/// Test JSON encoder/decoder work correctly (just verify our wrappers)
+pub fn pubsub_encoder_test() {
+  utils.debug_log(logging.Info, "🔄 Testing PubSub encoder/decoder wrappers")
+
+  // Test string roundtrip
+  let original_string = "Hello, World!"
+  let encoded = glixir.string_encoder(original_string)
+  case glixir.string_decoder(encoded) {
+    Ok(decoded) -> {
+      case decoded == original_string {
+        True -> {
+          utils.debug_log(logging.Info, "✅ String encoder/decoder works")
+        }
+        False -> {
+          utils.debug_log(logging.Error, "❌ String roundtrip failed")
+        }
+      }
+    }
+    Error(e) -> {
+      utils.debug_log(logging.Error, "❌ String decode failed: " <> e)
+    }
+  }
+
+  // Test int roundtrip
+  let original_int = 42
+  let encoded_int = glixir.int_encoder(original_int)
+  case glixir.int_decoder(encoded_int) {
+    Ok(decoded_int) -> {
+      case decoded_int == original_int {
+        True -> {
+          utils.debug_log(logging.Info, "✅ Int encoder/decoder works")
+          True |> should.be_true
+        }
+        False -> {
+          utils.debug_log(logging.Error, "❌ Int roundtrip failed")
+          False |> should.be_true
+        }
+      }
+    }
+    Error(e) -> {
+      utils.debug_log(logging.Error, "❌ Int decode failed: " <> e)
       False |> should.be_true
     }
   }
