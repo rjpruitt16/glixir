@@ -106,15 +106,18 @@ pub fn pubsub_wrapper_integration_test() {
 }
 
 // ============================================================================
-// REGISTRY BASIC VERIFICATION TEST
+// REGISTRY BASIC VERIFICATION TEST (PHANTOM-TYPED)
 // ============================================================================
 pub fn registry_basic_test() {
-  utils.debug_log(logging.Info, "🏪 Testing basic registry functionality")
+  utils.debug_log(
+    logging.Info,
+    "🏪 Testing phantom-typed registry functionality",
+  )
 
-  // Start registry using glixir function
+  // Start registry with phantom types for Atom keys and TestMessage values
   case glixir.start_registry(atom.create("test_registry")) {
-    Ok(_) -> {
-      utils.debug_log(logging.Info, "✅ Registry started")
+    Ok(registry) -> {
+      utils.debug_log(logging.Info, "✅ Phantom-typed registry started")
 
       // Create and register a subject
       let test_subject = process.new_subject()
@@ -122,55 +125,63 @@ pub fn registry_basic_test() {
         glixir.register_subject(
           atom.create("test_registry"),
           atom.create("test_key"),
+          // Typed as Atom
           test_subject,
+          glixir.atom_key_encoder,
+          // Required encoder
         )
       {
         Ok(_) -> {
-          utils.debug_log(logging.Info, "✅ Subject registered")
+          utils.debug_log(logging.Info, "✅ Subject registered with typed key")
 
-          // Look it up
+          // Look it up with the same encoder
           case
             glixir.lookup_subject(
               atom.create("test_registry"),
               atom.create("test_key"),
+              glixir.atom_key_encoder,
             )
           {
             Ok(found_subject) -> {
-              utils.debug_log(logging.Info, "✅ Subject found")
+              utils.debug_log(logging.Info, "✅ Subject found with type safety")
               process.send(found_subject, Echo("test"))
               True |> should.be_true
             }
             Error(_) -> {
-              logging.log(logging.Error, "❌ Subject lookup failed")
+              utils.always_log(logging.Error, "❌ Subject lookup failed")
               False |> should.be_true
             }
           }
         }
         Error(_) -> {
-          logging.log(logging.Error, "❌ Subject registration failed")
+          utils.always_log(logging.Error, "❌ Subject registration failed")
           False |> should.be_true
         }
       }
     }
     Error(_) -> {
-      logging.log(logging.Error, "❌ Registry start failed")
+      utils.always_log(logging.Error, "❌ Phantom-typed registry start failed")
       False |> should.be_true
     }
   }
 }
 
 pub fn registry_error_test() {
-  utils.debug_log(logging.Info, "⚠️ Testing registry error handling")
+  utils.debug_log(
+    logging.Info,
+    "⚠️ Testing phantom-typed registry error handling",
+  )
 
   // Test lookup in non-existent registry
   case
     glixir.lookup_subject(
       atom.create("nonexistent_registry"),
       atom.create("any_key"),
+      glixir.atom_key_encoder,
     )
   {
     Ok(_) -> {
-      logging.log(
+      utils.always_log(
         logging.Error,
         "❌ Found subject in non-existent registry (shouldn't happen)",
       )
@@ -184,15 +195,17 @@ pub fn registry_error_test() {
 
       // Test lookup of non-existent key in existing registry
       case glixir.start_registry(atom.create("error_test_registry")) {
-        Ok(_) -> {
+        Ok(_registry) -> {
+          // ← Remove the type annotation here
           case
             glixir.lookup_subject(
               atom.create("error_test_registry"),
               atom.create("missing_key"),
+              glixir.atom_key_encoder,
             )
           {
             Ok(_) -> {
-              logging.log(
+              utils.always_log(
                 logging.Error,
                 "❌ Found non-existent key (shouldn't happen)",
               )
@@ -215,7 +228,10 @@ pub fn registry_error_test() {
           }
         }
         Error(_) -> {
-          logging.log(logging.Warning, "⚠️ Could not start error test registry")
+          utils.always_log(
+            logging.Warning,
+            "⚠️ Could not start error test registry",
+          )
           True |> should.be_true
         }
       }
@@ -233,6 +249,124 @@ pub fn registry_error_test() {
         "✅ Correctly failed to find subject in non-existent registry (other error)",
       )
       True |> should.be_true
+    }
+  }
+}
+
+// ============================================================================
+// NEW PHANTOM-TYPE SPECIFIC TESTS
+// ============================================================================
+
+pub fn registry_type_safety_test() {
+  utils.debug_log(logging.Info, "🎯 Testing phantom-type compile-time safety")
+
+  // Test with Int keys and TestMessage values
+  case glixir.start_registry(atom.create("int_key_registry")) {
+    Ok(_registry) -> {
+      // ← Remove type annotation
+      utils.debug_log(logging.Info, "✅ Int-keyed registry started")
+
+      let test_subject = process.new_subject()
+
+      // Register with Int key
+      case
+        glixir.register_subject(
+          atom.create("int_key_registry"),
+          123,
+          // Int key
+          test_subject,
+          glixir.int_key_encoder,
+          // Int encoder
+        )
+      {
+        Ok(_) -> {
+          utils.debug_log(logging.Info, "✅ Subject registered with Int key")
+
+          // Look up with same Int key and encoder
+          case
+            glixir.lookup_subject(
+              atom.create("int_key_registry"),
+              123,
+              glixir.int_key_encoder,
+            )
+          {
+            Ok(found_subject) -> {
+              utils.debug_log(logging.Info, "✅ Subject found with Int key")
+              process.send(found_subject, Ping)
+              True |> should.be_true
+            }
+            Error(_) -> {
+              utils.always_log(logging.Error, "❌ Int key lookup failed")
+              False |> should.be_true
+            }
+          }
+        }
+        Error(_) -> {
+          utils.always_log(logging.Error, "❌ Int key registration failed")
+          False |> should.be_true
+        }
+      }
+    }
+    Error(_) -> {
+      utils.always_log(logging.Error, "❌ Int-keyed registry start failed")
+      False |> should.be_true
+    }
+  }
+}
+
+pub fn registry_user_id_encoder_test() {
+  utils.debug_log(logging.Info, "👤 Testing user ID encoder pattern")
+
+  // Test with user ID pattern (common real-world use case)
+  case glixir.start_registry(atom.create("user_registry")) {
+    Ok(_registry) -> {
+      // ← Remove type annotation
+      utils.debug_log(logging.Info, "✅ User registry started")
+
+      let user_subject = process.new_subject()
+
+      // Register user with ID 456
+      case
+        glixir.register_subject(
+          atom.create("user_registry"),
+          456,
+          // User ID
+          user_subject,
+          glixir.user_id_encoder,
+          // Converts 456 -> "user_456"
+        )
+      {
+        Ok(_) -> {
+          utils.debug_log(logging.Info, "✅ User registered with ID pattern")
+
+          // Look up the user
+          case
+            glixir.lookup_subject(
+              atom.create("user_registry"),
+              456,
+              glixir.user_id_encoder,
+            )
+          {
+            Ok(found_subject) -> {
+              utils.debug_log(logging.Info, "✅ User found by ID")
+              process.send(found_subject, Echo("Hello User 456!"))
+              True |> should.be_true
+            }
+            Error(_) -> {
+              utils.always_log(logging.Error, "❌ User lookup failed")
+              False |> should.be_true
+            }
+          }
+        }
+        Error(_) -> {
+          utils.always_log(logging.Error, "❌ User registration failed")
+          False |> should.be_true
+        }
+      }
+    }
+    Error(_) -> {
+      utils.always_log(logging.Error, "❌ User registry start failed")
+      False |> should.be_true
     }
   }
 }

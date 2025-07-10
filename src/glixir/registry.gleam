@@ -1,15 +1,19 @@
-//// Registry support for Subject lookup with dynamic spawning
+//// Type-safe, phantom-typed Registry for Gleam/Elixir interop
 ////
-//// This module provides a Gleam-friendly interface to Elixir's Registry,
-//// using our Elixir helper module for clean data conversion.
+//// This module provides a *phantom-typed* interface to Elixir Registry.
+//// All registries are parameterized by their `key_type` and `message_type`,
+//// so misuse is a compile error, not a runtime surprise.
 
 import gleam/dynamic.{type Dynamic}
-import gleam/erlang/atom
+import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid, type Subject}
+import gleam/int
 import gleam/string
+import logging
+import utils
 
-/// Opaque type representing a registry process
-pub opaque type Registry {
+/// Opaque phantom-typed registry
+pub opaque type Registry(key_type, message_type) {
   Registry(pid: Pid)
 }
 
@@ -21,18 +25,15 @@ pub type RegistryKeys {
 
 /// Errors from registry operations
 pub type RegistryError {
-  StartError(reason: String)
-  RegisterError(reason: String)
-  LookupError(reason: String)
-  UnregisterError(reason: String)
+  StartError(String)
+  RegisterError(String)
+  LookupError(String)
+  UnregisterError(String)
   AlreadyExists
   NotFound
 }
 
-// ============================================================================
-// RESULT TYPES - These match the Elixir helper return tuples
-// ============================================================================
-
+// FFI Result types for pattern matching
 pub type RegistryStartResult {
   RegistryStartOk(pid: Pid)
   RegistryStartError(reason: Dynamic)
@@ -54,10 +55,7 @@ pub type RegistryUnregisterResult {
   RegistryUnregisterError(reason: Dynamic)
 }
 
-// ============================================================================
-// FFI FUNCTIONS - Using Elixir Helper Module
-// ============================================================================
-
+// ============ FFI BINDINGS ==============
 @external(erlang, "Elixir.Glixir.Registry", "start_registry")
 fn start_registry_ffi(name: String, keys: String) -> RegistryStartResult
 
@@ -80,10 +78,7 @@ fn unregister_subject_ffi(
   key: String,
 ) -> RegistryUnregisterResult
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
+// ============ HELPERS ==============
 fn keys_to_string(keys: RegistryKeys) -> String {
   case keys {
     Unique -> "unique"
@@ -91,96 +86,184 @@ fn keys_to_string(keys: RegistryKeys) -> String {
   }
 }
 
-// ============================================================================
-// REGISTRY PUBLIC FUNCTIONS
-// ============================================================================
+// Key encoder - users must provide this for their key type
+pub type KeyEncoder(key_type) =
+  fn(key_type) -> String
 
-/// Start a new Registry with the given name and key type
+// ============ PUBLIC API ==============
+
+/// Start a phantom-typed registry with bounded key and message types
 pub fn start_registry(
-  name: atom.Atom,
+  name: Atom,
   keys: RegistryKeys,
-) -> Result(Registry, RegistryError) {
+) -> Result(Registry(key_type, message_type), RegistryError) {
+  utils.debug_log_with_prefix(
+    logging.Debug,
+    "registry",
+    "Starting registry: " <> atom.to_string(name),
+  )
+
   case start_registry_ffi(atom.to_string(name), keys_to_string(keys)) {
-    RegistryStartOk(pid) -> Ok(Registry(pid))
-    RegistryStartError(reason) -> Error(StartError(string.inspect(reason)))
+    RegistryStartOk(pid) -> {
+      utils.debug_log_with_prefix(
+        logging.Info,
+        "registry",
+        "Registry started successfully",
+      )
+      Ok(Registry(pid))
+    }
+    RegistryStartError(reason) -> {
+      utils.debug_log_with_prefix(
+        logging.Error,
+        "registry",
+        "Registry start failed",
+      )
+      Error(StartError(string.inspect(reason)))
+    }
   }
 }
 
 /// Start a unique key registry (most common use case)
-pub fn start_unique_registry(name: atom.Atom) -> Result(Registry, RegistryError) {
+pub fn start_unique_registry(
+  name: Atom,
+) -> Result(Registry(key_type, message_type), RegistryError) {
   start_registry(name, Unique)
 }
 
-/// Register a Subject with a key in the registry
+/// Register a Subject with a typed key in the phantom-typed registry
 pub fn register_subject(
-  registry_name: atom.Atom,
-  key: atom.Atom,
-  subject: Subject(message),
+  registry_name: Atom,
+  key: key_type,
+  subject: Subject(message_type),
+  encode_key: KeyEncoder(key_type),
 ) -> Result(Nil, RegistryError) {
+  utils.debug_log_with_prefix(
+    logging.Debug,
+    "registry",
+    "Registering subject with key",
+  )
+
   case
     register_subject_ffi(
       atom.to_string(registry_name),
-      atom.to_string(key),
+      encode_key(key),
       subject,
     )
   {
-    RegistryRegisterOk -> Ok(Nil)
-    RegistryRegisterError(reason) ->
+    RegistryRegisterOk -> {
+      utils.debug_log_with_prefix(
+        logging.Info,
+        "registry",
+        "Subject registered successfully",
+      )
+      Ok(Nil)
+    }
+    RegistryRegisterError(reason) -> {
+      utils.debug_log_with_prefix(
+        logging.Error,
+        "registry",
+        "Subject registration failed",
+      )
       Error(RegisterError(string.inspect(reason)))
+    }
   }
 }
 
-/// Look up a Subject by key in the registry
+/// Look up a Subject by typed key in the phantom-typed registry
 pub fn lookup_subject(
-  registry_name: atom.Atom,
-  key: atom.Atom,
-) -> Result(Subject(message), RegistryError) {
-  case lookup_subject_ffi(atom.to_string(registry_name), atom.to_string(key)) {
-    RegistryLookupOk(subject) -> Ok(subject)
-    RegistryLookupNotFound -> Error(NotFound)
-    RegistryLookupError(reason) -> Error(LookupError(string.inspect(reason)))
+  registry_name: Atom,
+  key: key_type,
+  encode_key: KeyEncoder(key_type),
+) -> Result(Subject(message_type), RegistryError) {
+  utils.debug_log_with_prefix(
+    logging.Debug,
+    "registry",
+    "Looking up subject by key",
+  )
+
+  case lookup_subject_ffi(atom.to_string(registry_name), encode_key(key)) {
+    RegistryLookupOk(subject) -> {
+      utils.debug_log_with_prefix(
+        logging.Info,
+        "registry",
+        "Subject found successfully",
+      )
+      Ok(subject)
+    }
+    RegistryLookupNotFound -> {
+      utils.debug_log_with_prefix(
+        logging.Warning,
+        "registry",
+        "Subject not found",
+      )
+      Error(NotFound)
+    }
+    RegistryLookupError(reason) -> {
+      utils.debug_log_with_prefix(
+        logging.Error,
+        "registry",
+        "Subject lookup failed",
+      )
+      Error(LookupError(string.inspect(reason)))
+    }
   }
 }
 
-/// Unregister a key from the registry
+/// Unregister a key from the phantom-typed registry
 pub fn unregister_subject(
-  registry_name: atom.Atom,
-  key: atom.Atom,
+  registry_name: Atom,
+  key: key_type,
+  encode_key: KeyEncoder(key_type),
 ) -> Result(Nil, RegistryError) {
-  case
-    unregister_subject_ffi(atom.to_string(registry_name), atom.to_string(key))
-  {
-    RegistryUnregisterOk -> Ok(Nil)
-    RegistryUnregisterError(reason) ->
+  utils.debug_log_with_prefix(
+    logging.Debug,
+    "registry",
+    "Unregistering subject",
+  )
+
+  case unregister_subject_ffi(atom.to_string(registry_name), encode_key(key)) {
+    RegistryUnregisterOk -> {
+      utils.debug_log_with_prefix(
+        logging.Info,
+        "registry",
+        "Subject unregistered successfully",
+      )
+      Ok(Nil)
+    }
+    RegistryUnregisterError(reason) -> {
+      utils.debug_log_with_prefix(
+        logging.Error,
+        "registry",
+        "Subject unregistration failed",
+      )
       Error(UnregisterError(string.inspect(reason)))
+    }
   }
 }
 
-// ============================================================================
-// CONVENIENCE FUNCTIONS FOR COMMON PATTERNS
-// ============================================================================
+// ============ CONVENIENCE ENCODERS ==============
 
-/// Register a subject with a custom key
-pub fn register_with_key(
-  registry_name: atom.Atom,
-  key: atom.Atom,
-  subject: Subject(message),
-) -> Result(Nil, RegistryError) {
-  register_subject(registry_name, key, subject)
+/// Encoder for Atom keys (most common case)
+pub fn atom_key_encoder(key: Atom) -> String {
+  atom.to_string(key)
 }
 
-/// Look up a subject by custom key
-pub fn lookup_with_key(
-  registry_name: atom.Atom,
-  key: atom.Atom,
-) -> Result(Subject(message), RegistryError) {
-  lookup_subject(registry_name, key)
+/// Encoder for String keys
+pub fn string_key_encoder(key: String) -> String {
+  key
 }
 
-/// Unregister a subject by custom key
-pub fn unregister_with_key(
-  registry_name: atom.Atom,
-  key: atom.Atom,
-) -> Result(Nil, RegistryError) {
-  unregister_subject(registry_name, key)
+/// Encoder for Int keys
+pub fn int_key_encoder(key: Int) -> String {
+  int.to_string(key)
+}
+
+/// Encoder for user ID keys (common pattern)
+pub fn user_id_encoder(user_id: Int) -> String {
+  "user_" <> int.to_string(user_id)
+}
+
+/// Encoder for session keys (common pattern)  
+pub fn session_key_encoder(session_id: String) -> String {
+  "session_" <> session_id
 }

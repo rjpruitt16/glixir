@@ -7,7 +7,7 @@ import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/erlang/atom
 import gleam/erlang/process.{type Pid, type Subject}
-import gleam/option.{None, Some}
+import gleam/option
 import gleam/string
 import glixir/agent
 import glixir/genserver
@@ -35,12 +35,18 @@ pub type Agent(state) =
 pub type AgentError =
   agent.AgentError
 
-// REGISTRY
-pub type Registry =
-  registry.Registry
+// REGISTRY - PHANTOM TYPED
+pub type Registry(key_type, message_type) =
+  registry.Registry(key_type, message_type)
 
 pub type RegistryError =
   registry.RegistryError
+
+pub type RegistryKeys =
+  registry.RegistryKeys
+
+pub type KeyEncoder(key_type) =
+  registry.KeyEncoder(key_type)
 
 // PUBSUB
 pub type PubSub =
@@ -117,33 +123,67 @@ pub fn pubsub_unsubscribe(
 }
 
 // =====================
-// REGISTRY
+// REGISTRY (NEW PHANTOM-TYPED API)
 // =====================
-pub fn start_registry(name: atom.Atom) -> Result(Registry, RegistryError) {
+
+/// Start a phantom-typed unique registry (you must specify key_type, message_type)
+pub fn start_registry(
+  name: atom.Atom,
+) -> Result(Registry(key_type, message_type), RegistryError) {
   registry.start_unique_registry(name)
 }
 
+/// Start a registry with specific keys configuration
+pub fn start_registry_with_keys(
+  name: atom.Atom,
+  keys: RegistryKeys,
+) -> Result(Registry(key_type, message_type), RegistryError) {
+  registry.start_registry(name, keys)
+}
+
+/// Register a subject with a typed key (requires key encoder)
 pub fn register_subject(
   registry_name: atom.Atom,
-  key: atom.Atom,
-  subject: Subject(message),
+  key: key_type,
+  subject: Subject(message_type),
+  encode_key: KeyEncoder(key_type),
 ) -> Result(Nil, RegistryError) {
-  registry.register_subject(registry_name, key, subject)
+  registry.register_subject(registry_name, key, subject, encode_key)
 }
 
+/// Look up a subject by typed key (requires key encoder)
 pub fn lookup_subject(
   registry_name: atom.Atom,
-  key: atom.Atom,
-) -> Result(Subject(message), RegistryError) {
-  registry.lookup_subject(registry_name, key)
+  key: key_type,
+  encode_key: KeyEncoder(key_type),
+) -> Result(Subject(message_type), RegistryError) {
+  registry.lookup_subject(registry_name, key, encode_key)
 }
 
+/// Unregister a subject by typed key (requires key encoder)
 pub fn unregister_subject(
   registry_name: atom.Atom,
-  key: atom.Atom,
+  key: key_type,
+  encode_key: KeyEncoder(key_type),
 ) -> Result(Nil, RegistryError) {
-  registry.unregister_subject(registry_name, key)
+  registry.unregister_subject(registry_name, key, encode_key)
 }
+
+// Convenience key encoders
+pub const atom_key_encoder = registry.atom_key_encoder
+
+pub const string_key_encoder = registry.string_key_encoder
+
+pub const int_key_encoder = registry.int_key_encoder
+
+pub const user_id_encoder = registry.user_id_encoder
+
+pub const session_key_encoder = registry.session_key_encoder
+
+// Registry configuration constants
+pub const unique = registry.Unique
+
+pub const duplicate = registry.Duplicate
 
 // =====================
 // SUPERVISOR (NEW BOUNDED API)
