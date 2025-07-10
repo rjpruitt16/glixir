@@ -60,52 +60,53 @@ defmodule Glixir.PubSub do
     
     debug_log(:debug, "[PubSub.ex] Subscribing to topic '#{topic}' (→ #{gleam_module}.#{gleam_function}/1)")
 
-    case Phoenix.PubSub.subscribe(pubsub_name, topic) do
-      :ok ->
-        always_log(:info, "[PubSub.ex] ✅ Subscribed to topic '#{topic}'")
-        
-        # Test if the module exists BEFORE spawning
-        try do
-          # Gleam modules don't have "Elixir." prefix - use the name directly
-          gleam_module_atom = String.to_existing_atom(gleam_module)
-          debug_log(:debug, "[PubSub.ex] Module atom created: #{inspect(gleam_module_atom)}")
+    # Test if the module exists BEFORE spawning
+    try do
+      gleam_module_atom = String.to_existing_atom(gleam_module)
+      debug_log(:debug, "[PubSub.ex] Module atom created: #{inspect(gleam_module_atom)}")
+      
+      # Test if the function exists
+      gleam_function_atom = String.to_existing_atom(gleam_function)
+      case function_exported?(gleam_module_atom, gleam_function_atom, 1) do
+        true ->
+          debug_log(:debug, "[PubSub.ex] Function confirmed: #{gleam_function}/1")
           
-          # Test if the function exists
-          gleam_function_atom = String.to_existing_atom(gleam_function)
-          case function_exported?(gleam_module_atom, gleam_function_atom, 1) do
-            true ->
-              debug_log(:debug, "[PubSub.ex] Function confirmed: #{gleam_function}/1")
-              
-              # Now spawn the handler process
-              debug_log(:debug, "[PubSub.ex] About to spawn handler process...")
-              
-              handler_pid = spawn(fn ->
-                debug_log(:debug, "[PubSub.ex] Handler process started successfully")
-                receive_loop(gleam_module, gleam_function)
-              end)
-              
-              debug_log(:debug, "[PubSub.ex] Handler spawned: #{inspect(handler_pid)}")
-              
-              :pubsub_subscribe_ok
-              
-            false ->
-              always_log(:error, "[PubSub.ex] ❌ Function not exported: #{gleam_module}.#{gleam_function}/1")
-              {:pubsub_subscribe_error, :function_not_exported}
-          end
+          # Spawn the handler process FIRST
+          debug_log(:debug, "[PubSub.ex] About to spawn handler process...")
           
-        rescue
-          ArgumentError ->
-            always_log(:error, "[PubSub.ex] ❌ Module does not exist: #{gleam_module}")
-            {:pubsub_subscribe_error, :module_not_found}
+          handler_pid = spawn(fn ->
+            debug_log(:debug, "[PubSub.ex] Handler process started, subscribing to PubSub...")
             
-          error ->
-            always_log(:error, "[PubSub.ex] ❌ Unexpected error during subscribe: #{inspect(error)}")
-            {:pubsub_subscribe_error, error}
-        end
-
-      {:error, reason} ->
-        always_log(:error, "[PubSub.ex] ❌ Subscribe failed: #{inspect(reason)}")
-        {:pubsub_subscribe_error, reason}
+            # Subscribe from WITHIN the handler process
+            case Phoenix.PubSub.subscribe(pubsub_name, topic) do
+              :ok ->
+                always_log(:info, "[PubSub.ex] ✅ Handler subscribed to topic '#{topic}'")
+                receive_loop(gleam_module, gleam_function)
+              {:error, reason} ->
+                always_log(:error, "[PubSub.ex] ❌ Handler subscribe failed: #{inspect(reason)}")
+            end
+          end)
+          
+          debug_log(:debug, "[PubSub.ex] Handler spawned: #{inspect(handler_pid)}")
+          
+          # Give the handler a moment to subscribe
+          Process.sleep(10)
+          
+          :pubsub_subscribe_ok
+          
+        false ->
+          always_log(:error, "[PubSub.ex] ❌ Function not exported: #{gleam_module}.#{gleam_function}/1")
+          {:pubsub_subscribe_error, :function_not_exported}
+      end
+      
+    rescue
+      ArgumentError ->
+        always_log(:error, "[PubSub.ex] ❌ Module does not exist: #{gleam_module}")
+        {:pubsub_subscribe_error, :module_not_found}
+        
+      error ->
+        always_log(:error, "[PubSub.ex] ❌ Unexpected error during subscribe: #{inspect(error)}")
+        {:pubsub_subscribe_error, error}
     end
   end
 
@@ -115,39 +116,34 @@ defmodule Glixir.PubSub do
     
     debug_log(:debug, "[PubSub.ex] Broadcasting to topic '#{topic}'")
 
-    # Use built-in Erlang JSON instead of Jason
-    case :json.decode(json_message) do
-      {:ok, decoded_message} ->
-        case Phoenix.PubSub.broadcast(pubsub_name, topic, decoded_message) do
-          :ok ->
-            always_log(:info, "[PubSub.ex] ✅ Broadcast sent to topic '#{topic}'")
-            :pubsub_broadcast_ok
+    # Use built-in Erlang JSON (no external dependencies)
+    try do
+      # Erlang's :json.decode/1 can return different formats depending on version
+      decoded_message = case :json.decode(json_message) do
+        {:ok, msg} -> msg
+        msg when not is_tuple(msg) -> msg
+        {:error, reason} -> 
+          always_log(:error, "[PubSub.ex] ❌ Invalid JSON: #{inspect(reason)}")
+          throw({:json_error, reason})
+      end
 
-          {:error, reason} ->
-            always_log(:error, "[PubSub.ex] ❌ Broadcast failed: #{inspect(reason)}")
-            {:pubsub_broadcast_error, reason}
-        end
+      case Phoenix.PubSub.broadcast(pubsub_name, topic, decoded_message) do
+        :ok ->
+          always_log(:info, "[PubSub.ex] ✅ Broadcast sent to topic '#{topic}'")
+          :pubsub_broadcast_ok
 
-      decoded_message when not is_tuple(decoded_message) ->
-        # :json.decode returns the value directly, not {:ok, value}
-        case Phoenix.PubSub.broadcast(pubsub_name, topic, decoded_message) do
-          :ok ->
-            always_log(:info, "[PubSub.ex] ✅ Broadcast sent to topic '#{topic}'")
-            :pubsub_broadcast_ok
-
-          {:error, reason} ->
-            always_log(:error, "[PubSub.ex] ❌ Broadcast failed: #{inspect(reason)}")
-            {:pubsub_broadcast_error, reason}
-        end
-        
-      {:error, reason} ->
-        always_log(:error, "[PubSub.ex] ❌ Invalid JSON: #{inspect(reason)}")
+        {:error, reason} ->
+          always_log(:error, "[PubSub.ex] ❌ Broadcast failed: #{inspect(reason)}")
+          {:pubsub_broadcast_error, reason}
+      end
+    catch
+      {:json_error, reason} ->
         {:pubsub_broadcast_error, :invalid_json}
+    rescue
+      error ->
+        always_log(:error, "[PubSub.ex] ❌ JSON decode error: #{inspect(error)}")
+        {:pubsub_broadcast_error, :json_decode_error}
     end
-  rescue
-    error ->
-      always_log(:error, "[PubSub.ex] ❌ JSON decode error: #{inspect(error)}")
-      {:pubsub_broadcast_error, :json_decode_error}
   end
 
   # --- UNSUBSCRIBE ---
@@ -167,34 +163,51 @@ defmodule Glixir.PubSub do
     end
   end
 
-  # -- HANDLER LOOP --
+  # --- HANDLER LOOP (No Jason dependency) ---
   defp receive_loop(gleam_module, gleam_function) do
     receive do
       msg ->
-        case Jason.encode(msg) do
-          {:ok, json} ->
-            try do
-              # Don't prepend "Elixir." - the module name is already correct
-              gleam_module_atom = String.to_existing_atom(gleam_module)
-              gleam_function_atom = String.to_existing_atom(gleam_function)
-              
-              debug_log(:debug, "[PubSub.ex] Calling #{gleam_module_atom}.#{gleam_function_atom}(#{json})")
-              
-              apply(gleam_module_atom, gleam_function_atom, [json])
-              
-            rescue
-              ArgumentError ->
-                always_log(:error, "[PubSub.ex] ❌ Module not found: #{gleam_module}")
-              
-              UndefinedFunctionError ->
-                always_log(:error, "[PubSub.ex] ❌ Function not found: #{gleam_module}.#{gleam_function}/1")
-              
-              error ->
-                always_log(:error, "[PubSub.ex] ❌ Error calling handler: #{inspect(error)}")
-            end
+        debug_log(:debug, "[PubSub.ex] 🎯 Handler received message: #{inspect(msg)}")
+        
+        # Use built-in Erlang JSON encoding (no Jason dependency)
+        try do
+          # Erlang's :json.encode/1 for encoding
+          json = case :json.encode(msg) do
+            {:ok, json_string} -> json_string
+            json_string when is_binary(json_string) -> json_string
+            {:error, reason} ->
+              always_log(:error, "[PubSub.ex] ❌ JSON encode error: #{inspect(reason)}")
+              throw({:json_encode_error, reason})
+          end
 
-          {:error, error} ->
-            always_log(:error, "[PubSub.ex] ❌ JSON encode error: #{inspect(error)}")
+          # Call the Gleam function
+          try do
+            gleam_module_atom = String.to_existing_atom(gleam_module)
+            gleam_function_atom = String.to_existing_atom(gleam_function)
+            
+            debug_log(:debug, "[PubSub.ex] Calling #{gleam_module_atom}.#{gleam_function_atom}(#{json})")
+            
+            _result = apply(gleam_module_atom, gleam_function_atom, [json])
+            debug_log(:debug, "[PubSub.ex] ✅ Handler call successful")
+            
+          rescue
+            ArgumentError ->
+              always_log(:error, "[PubSub.ex] ❌ Module not found: #{gleam_module}")
+            
+            UndefinedFunctionError ->
+              always_log(:error, "[PubSub.ex] ❌ Function not found: #{gleam_module}.#{gleam_function}/1")
+            
+            error ->
+              always_log(:error, "[PubSub.ex] ❌ Error calling handler: #{inspect(error)}")
+          end
+
+        catch
+          {:json_encode_error, _reason} ->
+            # Already logged, just continue
+            :ok
+        rescue
+          error ->
+            always_log(:error, "[PubSub.ex] ❌ Unexpected error in message handling: #{inspect(error)}")
         end
 
         receive_loop(gleam_module, gleam_function)
