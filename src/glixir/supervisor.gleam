@@ -12,8 +12,8 @@ import gleam/int
 import gleam/list
 import gleam/option.{type Option}
 import gleam/string
+import glixir/utils
 import logging
-import utils
 
 /// Opaque type representing a supervisor process
 pub opaque type DynamicSupervisor(child_args, child_reply) {

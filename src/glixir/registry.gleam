@@ -9,8 +9,8 @@ import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid, type Subject}
 import gleam/int
 import gleam/string
+import glixir/utils
 import logging
-import utils
 
 /// Opaque phantom-typed registry
 pub opaque type Registry(key_type, message_type) {

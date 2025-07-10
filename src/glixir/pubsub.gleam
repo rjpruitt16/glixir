@@ -13,8 +13,8 @@ import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
 import gleam/json
 import gleam/string
+import glixir/utils
 import logging
-import utils
 
 /// Opaque phantom-typed PubSub system
 pub opaque type PubSub(message_type) {

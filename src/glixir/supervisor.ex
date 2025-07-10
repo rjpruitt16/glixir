@@ -3,17 +3,16 @@ defmodule Glixir.Supervisor do
   Elixir wrapper for OTP Supervisor functions that converts responses
   into Gleam-compatible tuple formats.
   """
-  require Logger
 
-  # Use Gleam utils module for debug logging
+  # Use Gleam utils module for debug logging (updated path)
   defp debug_log(level, message) do
-    :utils.debug_log(level, message)
+    :glixir@utils.debug_log(level, message)
   end
-
-  # Always log (for critical errors)
+  
+  # Always log (for critical errors) (updated path)
   defp always_log(level, message) do
-    :utils.always_log(level, message)
-  end
+    :glixir@utils.always_log(level, message)
+  end  
 
   # ========================================
   # DYNAMIC SUPERVISOR FUNCTIONS

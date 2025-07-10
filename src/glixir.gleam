@@ -16,8 +16,8 @@ import glixir/genserver
 import glixir/pubsub
 import glixir/registry
 import glixir/supervisor
+import glixir/utils
 import logging
-import utils
 
 // =====================
 // PUBLIC TYPE EXPORTS

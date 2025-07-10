@@ -11,8 +11,8 @@ import glixir
 import glixir/pubsub
 import glixir/registry
 import glixir/supervisor
+import glixir/utils
 import logging
-import utils
 
 pub fn main() {
   // Configure logging for tests
