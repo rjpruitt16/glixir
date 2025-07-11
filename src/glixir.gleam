@@ -129,6 +129,22 @@ pub fn pubsub_subscribe(
   pubsub.subscribe(pubsub_name, topic, gleam_module, gleam_function)
 }
 
+pub fn pubsub_subscribe_with_registry_key(
+  pubsub_name: Atom,
+  topic: String,
+  gleam_module: String,
+  gleam_function: String,
+  registry_key: String,
+) -> Result(Nil, PubSubError) {
+  pubsub.subscribe_with_registry_key(
+    pubsub_name,
+    topic,
+    gleam_module,
+    gleam_function,
+    registry_key,
+  )
+}
+
 /// Broadcast a message to all subscribers
 pub fn pubsub_broadcast(
   pubsub_name: Atom,
