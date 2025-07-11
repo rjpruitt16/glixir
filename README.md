@@ -181,6 +181,31 @@ pub fn pubsub_example() {
 }
 ```
 
+**Direct Actor Targeting Pattern:**
+```gleam
+// Perfect for metric actors that need their own identity
+pub fn handle_metric_update(actor_id: String, json_message: String) -> Nil {
+  case decode_metric_message(json_message) {
+    Ok(metric) -> {
+      // Update this specific actor's metrics
+      io.println("Actor " <> actor_id <> " received metric: " <> metric.name)
+      // ... update actor state
+    }
+    Error(_) -> {
+      io.println("Invalid metric for actor: " <> actor_id)
+    }
+  }
+}
+```
+// Subscribe each metric actor with its own ID
+let assert Ok(_) = glixir.pubsub_subscribe_with_registry_key(
+  atom.create("metrics_pubsub"),
+  "metric:updates",
+  "my_app",
+  "handle_metric_update",
+  "metric_actor_" <> actor_id  // Each actor gets its own key
+)
+
 **Multi-Message Handler Example:**
 ```gleam
 // Single handler can process multiple message types!
