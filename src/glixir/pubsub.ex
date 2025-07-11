@@ -111,41 +111,15 @@ defmodule Glixir.PubSub do
   end
 
   # --- BROADCAST ---
-  def broadcast(pubsub_name, topic, json_message)
-      when is_atom(pubsub_name) and is_binary(topic) and is_binary(json_message) do
-    
+  def broadcast(pubsub_name, topic, message) do
     debug_log(:debug, "[PubSub.ex] Broadcasting to topic '#{topic}'")
-
-    # Use built-in Erlang JSON (no external dependencies)
-    try do
-      # Erlang's :json.decode/1 can return different formats depending on version
-      decoded_message = case :json.decode(json_message) do
-        {:ok, msg} -> msg
-        msg when not is_tuple(msg) -> msg
-        {:error, reason} -> 
-          always_log(:error, "[PubSub.ex] ❌ Invalid JSON: #{inspect(reason)}")
-          throw({:json_error, reason})
-      end
-
-      case Phoenix.PubSub.broadcast(pubsub_name, topic, decoded_message) do
-        :ok ->
-          always_log(:info, "[PubSub.ex] ✅ Broadcast sent to topic '#{topic}'")
-          :pubsub_broadcast_ok
-
-        {:error, reason} ->
-          always_log(:error, "[PubSub.ex] ❌ Broadcast failed: #{inspect(reason)}")
-          {:pubsub_broadcast_error, reason}
-      end
-    catch
-      {:json_error, reason} ->
-        {:pubsub_broadcast_error, :invalid_json}
-    rescue
-      error ->
-        always_log(:error, "[PubSub.ex] ❌ JSON decode error: #{inspect(error)}")
-        {:pubsub_broadcast_error, :json_decode_error}
+  
+    case Phoenix.PubSub.broadcast(pubsub_name, topic, message) do
+      :ok -> :pubsub_broadcast_ok
+      {:error, reason} -> {:pubsub_broadcast_error, reason}
     end
   end
-
+  
   # --- UNSUBSCRIBE ---
   def unsubscribe(pubsub_name, topic)
       when is_atom(pubsub_name) and is_binary(topic) do
