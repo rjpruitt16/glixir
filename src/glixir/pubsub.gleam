@@ -72,6 +72,15 @@ fn subscribe_ffi(
   gleam_function: String,
 ) -> PubSubSubscribeResult
 
+@external(erlang, "Elixir.Glixir.PubSub", "subscribe")
+fn subscribe_with_key_ffi(
+  pubsub_name: Atom,
+  topic: String,
+  gleam_module: String,
+  gleam_function: String,
+  registry_key: String,
+) -> PubSubSubscribeResult
+
 @external(erlang, "Elixir.Glixir.PubSub", "broadcast")
 fn broadcast_ffi(
   pubsub_name: Atom,
@@ -117,6 +126,7 @@ pub fn start(name: Atom) -> Result(PubSub(message_type), PubSubError) {
 
 /// Subscribe to a topic with message handling
 /// The gleam_function must accept a single String parameter (JSON) and return Nil
+/// Subscribe to a topic with message handling
 pub fn subscribe(
   pubsub_name: Atom,
   topic: String,
@@ -135,6 +145,48 @@ pub fn subscribe(
         logging.Info,
         "pubsub",
         "Subscribed successfully to: " <> topic,
+      )
+      Ok(Nil)
+    }
+    PubsubSubscribeError(reason) -> {
+      utils.debug_log_with_prefix(
+        logging.Error,
+        "pubsub",
+        "Subscribe failed for topic: " <> topic,
+      )
+      Error(SubscribeError(string.inspect(reason)))
+    }
+  }
+}
+
+/// Subscribe to a topic with registry key for direct actor targeting
+pub fn subscribe_with_registry_key(
+  pubsub_name: Atom,
+  topic: String,
+  gleam_module: String,
+  gleam_function: String,
+  registry_key: String,
+) -> Result(Nil, PubSubError) {
+  utils.debug_log_with_prefix(
+    logging.Debug,
+    "pubsub",
+    "Subscribing to topic: " <> topic <> " with key: " <> registry_key,
+  )
+
+  case
+    subscribe_with_key_ffi(
+      pubsub_name,
+      topic,
+      gleam_module,
+      gleam_function,
+      registry_key,
+    )
+  {
+    PubsubSubscribeOk -> {
+      utils.debug_log_with_prefix(
+        logging.Info,
+        "pubsub",
+        "Subscribed successfully to: " <> topic <> " with key: " <> registry_key,
       )
       Ok(Nil)
     }

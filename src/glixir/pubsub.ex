@@ -54,24 +54,25 @@ defmodule Glixir.PubSub do
     end
   end
 
-  # --- SUBSCRIBE ---
-  def subscribe(pubsub_name, topic, gleam_module, gleam_function)
+  def subscribe(pubsub_name, topic, gleam_module, gleam_function, registry_key \\ nil)
       when is_atom(pubsub_name) and is_binary(topic) and is_binary(gleam_module) and is_binary(gleam_function) do
     
-    debug_log(:debug, "[PubSub.ex] Subscribing to topic '#{topic}' (→ #{gleam_module}.#{gleam_function}/1)")
+    debug_log(:debug, "[PubSub.ex] Subscribing to topic '#{topic}' (→ #{gleam_module}.#{gleam_function})")
 
     # Test if the module exists BEFORE spawning
     try do
       gleam_module_atom = String.to_existing_atom(gleam_module)
       debug_log(:debug, "[PubSub.ex] Module atom created: #{inspect(gleam_module_atom)}")
       
-      # Test if the function exists
+      # Test if the function exists (check both 1-arity and 2-arity versions)
       gleam_function_atom = String.to_existing_atom(gleam_function)
-      case function_exported?(gleam_module_atom, gleam_function_atom, 1) do
+      function_arity = if registry_key, do: 2, else: 1
+      
+      case function_exported?(gleam_module_atom, gleam_function_atom, function_arity) do
         true ->
-          debug_log(:debug, "[PubSub.ex] Function confirmed: #{gleam_function}/1")
+          debug_log(:debug, "[PubSub.ex] Function confirmed: #{gleam_function}/#{function_arity}")
           
-          # Spawn the handler process FIRST
+          # Spawn the handler process
           debug_log(:debug, "[PubSub.ex] About to spawn handler process...")
           
           handler_pid = spawn(fn ->
@@ -81,7 +82,7 @@ defmodule Glixir.PubSub do
             case Phoenix.PubSub.subscribe(pubsub_name, topic) do
               :ok ->
                 always_log(:info, "[PubSub.ex] ✅ Handler subscribed to topic '#{topic}'")
-                receive_loop(gleam_module, gleam_function)
+                receive_loop(gleam_module, gleam_function, registry_key)
               {:error, reason} ->
                 always_log(:error, "[PubSub.ex] ❌ Handler subscribe failed: #{inspect(reason)}")
             end
@@ -95,7 +96,7 @@ defmodule Glixir.PubSub do
           :pubsub_subscribe_ok
           
         false ->
-          always_log(:error, "[PubSub.ex] ❌ Function not exported: #{gleam_module}.#{gleam_function}/1")
+          always_log(:error, "[PubSub.ex] ❌ Function not exported: #{gleam_module}.#{gleam_function}/#{function_arity}")
           {:pubsub_subscribe_error, :function_not_exported}
       end
       
@@ -109,6 +110,54 @@ defmodule Glixir.PubSub do
         {:pubsub_subscribe_error, error}
     end
   end
+
+  # --- UPDATED HANDLER LOOP ---
+  defp receive_loop(gleam_module, gleam_function, registry_key \\ nil) do
+    receive do
+      msg ->
+        debug_log(:debug, "[PubSub.ex] 🎯 Handler received message: #{inspect(msg)}")
+        
+        try do
+          # Convert message to string - handle different formats
+          string_message = case msg do
+            s when is_binary(s) -> 
+              s
+            iolist when is_list(iolist) -> 
+              # This handles the nested IO list from Gleam's json.to_string
+              IO.iodata_to_binary(iolist)
+            other -> 
+              # Fallback to inspect for other types
+              inspect(other)
+          end
+          
+          gleam_module_atom = String.to_existing_atom(gleam_module)
+          gleam_function_atom = String.to_existing_atom(gleam_function)
+          
+          # Call function with or without registry key
+          result = if registry_key do
+            debug_log(:debug, "[PubSub.ex] Calling #{gleam_module_atom}.#{gleam_function_atom}(#{registry_key}, #{string_message})")
+            apply(gleam_module_atom, gleam_function_atom, [registry_key, string_message])
+          else
+            debug_log(:debug, "[PubSub.ex] Calling #{gleam_module_atom}.#{gleam_function_atom}(#{string_message})")
+            apply(gleam_module_atom, gleam_function_atom, [string_message])
+          end
+          
+          debug_log(:debug, "[PubSub.ex] ✅ Handler call successful")
+          
+        rescue
+          ArgumentError ->
+            always_log(:error, "[PubSub.ex] ❌ Module not found: #{gleam_module}")
+          
+          UndefinedFunctionError ->
+            always_log(:error, "[PubSub.ex] ❌ Function not found: #{gleam_module}.#{gleam_function}")
+          
+          error ->
+            always_log(:error, "[PubSub.ex] ❌ Error calling handler: #{inspect(error)}")
+        end
+
+        receive_loop(gleam_module, gleam_function, registry_key)
+    end
+  end  
 
   # --- BROADCAST ---
   def broadcast(pubsub_name, topic, message) do
@@ -134,49 +183,6 @@ defmodule Glixir.PubSub do
       {:error, reason} ->
         always_log(:error, "[PubSub.ex] ❌ Unsubscribe failed: #{inspect(reason)}")
         {:pubsub_unsubscribe_error, reason}
-    end
-  end
-
-  # --- HANDLER LOOP (No Jason dependency) ---
-  defp receive_loop(gleam_module, gleam_function) do
-    receive do
-      msg ->
-        debug_log(:debug, "[PubSub.ex] 🎯 Handler received message: #{inspect(msg)}")
-        
-        try do
-          # Convert message to string - handle different formats
-          string_message = case msg do
-            s when is_binary(s) -> 
-              s
-            iolist when is_list(iolist) -> 
-              # This handles the nested IO list from Gleam's json.to_string
-              IO.iodata_to_binary(iolist)
-            other -> 
-              # Fallback to inspect for other types
-              inspect(other)
-          end
-          
-          gleam_module_atom = String.to_existing_atom(gleam_module)
-          gleam_function_atom = String.to_existing_atom(gleam_function)
-          
-          debug_log(:debug, "[PubSub.ex] Calling #{gleam_module_atom}.#{gleam_function_atom}(#{string_message})")
-          
-          # Pass the properly formatted string to Gleam
-          _result = apply(gleam_module_atom, gleam_function_atom, [string_message])
-          debug_log(:debug, "[PubSub.ex] ✅ Handler call successful")
-          
-        rescue
-          ArgumentError ->
-            always_log(:error, "[PubSub.ex] ❌ Module not found: #{gleam_module}")
-          
-          UndefinedFunctionError ->
-            always_log(:error, "[PubSub.ex] ❌ Function not found: #{gleam_module}.#{gleam_function}/1")
-          
-          error ->
-            always_log(:error, "[PubSub.ex] ❌ Error calling handler: #{inspect(error)}")
-        end
-
-        receive_loop(gleam_module, gleam_function)
     end
   end
 end
