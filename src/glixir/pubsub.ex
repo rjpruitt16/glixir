@@ -143,45 +143,37 @@ defmodule Glixir.PubSub do
       msg ->
         debug_log(:debug, "[PubSub.ex] 🎯 Handler received message: #{inspect(msg)}")
         
-        # Use built-in Erlang JSON encoding (no Jason dependency)
         try do
-          # Erlang's :json.encode/1 for encoding
-          json = case :json.encode(msg) do
-            {:ok, json_string} -> json_string
-            json_string when is_binary(json_string) -> json_string
-            {:error, reason} ->
-              always_log(:error, "[PubSub.ex] ❌ JSON encode error: #{inspect(reason)}")
-              throw({:json_encode_error, reason})
+          # Convert message to string - handle different formats
+          string_message = case msg do
+            s when is_binary(s) -> 
+              s
+            iolist when is_list(iolist) -> 
+              # This handles the nested IO list from Gleam's json.to_string
+              IO.iodata_to_binary(iolist)
+            other -> 
+              # Fallback to inspect for other types
+              inspect(other)
           end
-
-          # Call the Gleam function
-          try do
-            gleam_module_atom = String.to_existing_atom(gleam_module)
-            gleam_function_atom = String.to_existing_atom(gleam_function)
-            
-            debug_log(:debug, "[PubSub.ex] Calling #{gleam_module_atom}.#{gleam_function_atom}(#{json})")
-            
-            _result = apply(gleam_module_atom, gleam_function_atom, [json])
-            debug_log(:debug, "[PubSub.ex] ✅ Handler call successful")
-            
-          rescue
-            ArgumentError ->
-              always_log(:error, "[PubSub.ex] ❌ Module not found: #{gleam_module}")
-            
-            UndefinedFunctionError ->
-              always_log(:error, "[PubSub.ex] ❌ Function not found: #{gleam_module}.#{gleam_function}/1")
-            
-            error ->
-              always_log(:error, "[PubSub.ex] ❌ Error calling handler: #{inspect(error)}")
-          end
-
-        catch
-          {:json_encode_error, _reason} ->
-            # Already logged, just continue
-            :ok
+          
+          gleam_module_atom = String.to_existing_atom(gleam_module)
+          gleam_function_atom = String.to_existing_atom(gleam_function)
+          
+          debug_log(:debug, "[PubSub.ex] Calling #{gleam_module_atom}.#{gleam_function_atom}(#{string_message})")
+          
+          # Pass the properly formatted string to Gleam
+          _result = apply(gleam_module_atom, gleam_function_atom, [string_message])
+          debug_log(:debug, "[PubSub.ex] ✅ Handler call successful")
+          
         rescue
+          ArgumentError ->
+            always_log(:error, "[PubSub.ex] ❌ Module not found: #{gleam_module}")
+          
+          UndefinedFunctionError ->
+            always_log(:error, "[PubSub.ex] ❌ Function not found: #{gleam_module}.#{gleam_function}/1")
+          
           error ->
-            always_log(:error, "[PubSub.ex] ❌ Unexpected error in message handling: #{inspect(error)}")
+            always_log(:error, "[PubSub.ex] ❌ Error calling handler: #{inspect(error)}")
         end
 
         receive_loop(gleam_module, gleam_function)

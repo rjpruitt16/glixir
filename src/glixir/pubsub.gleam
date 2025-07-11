@@ -1,4 +1,3 @@
-//// Type-safe, phantom-typed PubSub for Gleam/Elixir interop
 ////
 //// This module provides a *phantom-typed* interface to Phoenix PubSub.
 //// All PubSub systems are parameterized by their `message_type`,
@@ -6,6 +5,8 @@
 ////
 //// IMPORTANT: PubSub names must be pre-existing atoms to prevent atom table overflow.
 //// Users are responsible for creating atoms safely before calling start().
+
+// Type-safe, phantom-typed PubSub for Gleam/Elixir interop
 
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
