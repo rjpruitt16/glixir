@@ -210,6 +210,34 @@ pub fn unregister_subject(
   registry.unregister_subject(registry_name, key, encode_key)
 }
 
+/// SAFE: Register a subject with string key (no dynamic atom creation)
+/// Use this for user-generated keys to avoid atom table exhaustion
+pub fn register_subject_string(
+  registry_name: atom.Atom,
+  key: String,
+  subject: Subject(message_type),
+) -> Result(Nil, RegistryError) {
+  registry.register_subject_string(registry_name, key, subject)
+}
+
+/// SAFE: Look up a subject by string key (no dynamic atom creation)
+/// Use this for user-generated keys to avoid atom table exhaustion
+pub fn lookup_subject_string(
+  registry_name: atom.Atom,
+  key: String,
+) -> Result(Subject(message_type), RegistryError) {
+  registry.lookup_subject_string(registry_name, key)
+}
+
+/// SAFE: Unregister a subject by string key (no dynamic atom creation)
+/// Use this for user-generated keys to avoid atom table exhaustion
+pub fn unregister_subject_string(
+  registry_name: atom.Atom,
+  key: String,
+) -> Result(Nil, RegistryError) {
+  registry.unregister_subject_string(registry_name, key)
+}
+
 // Convenience key encoders
 pub const atom_key_encoder = registry.atom_key_encoder
 
