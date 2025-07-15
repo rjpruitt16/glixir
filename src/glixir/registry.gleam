@@ -209,6 +209,44 @@ pub fn lookup_subject(
   }
 }
 
+/// SAFE: Register with string key (no dynamic atom creation)
+pub fn register_subject_string(
+  registry_name: Atom,
+  key: String,
+  // Direct string, no atom conversion
+  subject: Subject(message_type),
+) -> Result(Nil, RegistryError) {
+  case register_subject_ffi(atom.to_string(registry_name), key, subject) {
+    RegistryRegisterOk -> Ok(Nil)
+    RegistryRegisterError(reason) ->
+      Error(RegisterError(string.inspect(reason)))
+  }
+}
+
+/// SAFE: Lookup with string key
+pub fn lookup_subject_string(
+  registry_name: Atom,
+  key: String,
+) -> Result(Subject(message_type), RegistryError) {
+  case lookup_subject_ffi(atom.to_string(registry_name), key) {
+    RegistryLookupOk(subject) -> Ok(subject)
+    RegistryLookupNotFound -> Error(NotFound)
+    RegistryLookupError(reason) -> Error(LookupError(string.inspect(reason)))
+  }
+}
+
+/// SAFE: Unregister with string key
+pub fn unregister_subject_string(
+  registry_name: Atom,
+  key: String,
+) -> Result(Nil, RegistryError) {
+  case unregister_subject_ffi(atom.to_string(registry_name), key) {
+    RegistryUnregisterOk -> Ok(Nil)
+    RegistryUnregisterError(reason) ->
+      Error(UnregisterError(string.inspect(reason)))
+  }
+}
+
 /// Unregister a key from the phantom-typed registry
 pub fn unregister_subject(
   registry_name: Atom,
