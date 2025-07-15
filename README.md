@@ -52,6 +52,26 @@ You get strict safety *inside* Gleam, but as soon as you jump the BEAM-to-BEAM f
 
 ---
 
+# ⚠️ Caveats: BEAM Interop Trade-offs
+
+Glixir provides **bounded type safety** - the maximum safety possible while maintaining full OTP functionality. Some limitations are **inherent to BEAM interop**, not design flaws:
+
+## The Safety Spectrum
+- **Pure Gleam:** 100% compile-time safe, but no distributed features  
+- **Glixir:** 70-90% compile-time safe + runtime validation, full OTP power  
+- **Raw FFI:** ~20% safe, full OTP power, high risk
+
+## Unavoidable BEAM Realities
+- **Process discovery** - distributed systems have runtime process existence
+- **Module loading** - OTP's dynamic nature requires string module names  
+- **Cross-language boundaries** - serialization between Gleam and Elixir
+
+## What You Get
+✅ **Compile-time:** Prevents category errors, type mixing, wrong message types  
+⚠️ **Runtime:** Process existence, module validity, message format compatibility  
+
+**Bottom Line:** Glixir is the sweet spot - maximum practical safety with essential functionality that core Gleam simply doesn't provide.
+
 **Want to help speed this up? File issues, suggest API improvements, or just cheer us on in the repo!**
 
 ---
