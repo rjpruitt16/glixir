@@ -281,7 +281,7 @@ pub fn start_dynamic_supervisor_named(
   }
 }
 
-pub fn start_dynamic_supervisor_named_safed(
+pub fn start_dynamic_supervisor_named_safe(
   name: String,
 ) -> Result(DynamicSupervisor(child_args, child_reply), SupervisorError) {
   utils.debug_log(
