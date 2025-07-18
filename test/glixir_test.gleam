@@ -1,4 +1,4 @@
-import gleam/dynamic.{type Dynamic}
+import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/erlang/atom
 import gleam/erlang/process.{type Pid}
@@ -8,7 +8,6 @@ import gleam/string
 import gleeunit
 import gleeunit/should
 import glixir
-import glixir/pubsub
 import glixir/registry
 import glixir/supervisor
 import glixir/utils
@@ -195,7 +194,7 @@ pub fn registry_basic_test() {
 
   // Start registry with phantom types for Atom keys and TestMessage values
   case glixir.start_registry(atom.create("test_registry")) {
-    Ok(registry) -> {
+    Ok(_registry) -> {
       utils.debug_log(logging.Info, "✅ Phantom-typed registry started")
 
       // Create and register a subject
@@ -468,19 +467,6 @@ fn list_args_encode(args: List(String)) -> List(dynamic.Dynamic) {
   [dynamic.array(list.map(args, dynamic.string))]
 }
 
-fn config_map_encode(
-  args: List(#(String, dynamic.Dynamic)),
-) -> List(dynamic.Dynamic) {
-  [
-    dynamic.properties(
-      list.map(args, fn(pair) {
-        let #(key, value) = pair
-        #(dynamic.string(key), value)
-      }),
-    ),
-  ]
-}
-
 fn simple_decode(_d: dynamic.Dynamic) -> Result(String, String) {
   Ok("ok")
 }
@@ -502,11 +488,10 @@ pub fn simple_supervisor_test() {
           glixir.permanent,
           5000,
           glixir.worker,
-          string_encode,
         )
 
       case glixir.start_dynamic_child(sup, spec, string_encode, simple_decode) {
-        supervisor.ChildStarted(pid, reply) -> {
+        supervisor.ChildStarted(_pid, _reply) -> {
           utils.debug_log(
             logging.Info,
             "✅ Supervisor working - child started successfully",
@@ -586,11 +571,10 @@ pub fn supervisor_child_management_test() {
           restart: glixir.permanent,
           shutdown_timeout: 5000,
           child_type: glixir.worker,
-          encode: string_encode,
         )
 
       case glixir.start_dynamic_child(sup, spec, string_encode, simple_decode) {
-        supervisor.ChildStarted(child_pid, reply) -> {
+        supervisor.ChildStarted(child_pid, _reply) -> {
           utils.debug_log(logging.Info, "✅ Child worker started!")
 
           case process.is_alive(child_pid) {
@@ -661,7 +645,6 @@ pub fn supervisor_restart_strategies_test() {
           glixir.permanent,
           5000,
           glixir.worker,
-          string_encode,
         )
 
       let temp_spec =
@@ -673,7 +656,6 @@ pub fn supervisor_restart_strategies_test() {
           glixir.temporary,
           5000,
           glixir.worker,
-          string_encode,
         )
 
       let trans_spec =
@@ -685,7 +667,6 @@ pub fn supervisor_restart_strategies_test() {
           glixir.transient,
           5000,
           glixir.worker,
-          string_encode,
         )
 
       let results = [
@@ -743,7 +724,6 @@ pub fn realistic_child_specs_test() {
           glixir.permanent,
           5000,
           glixir.worker,
-          string_encode,
         )
 
       case
@@ -754,7 +734,7 @@ pub fn realistic_child_specs_test() {
           simple_decode,
         )
       {
-        supervisor.ChildStarted(child_pid, reply) -> {
+        supervisor.ChildStarted(child_pid, _reply) -> {
           utils.debug_log(logging.Info, "✅ Config worker started successfully")
 
           case process.is_alive(child_pid) {
@@ -797,7 +777,6 @@ pub fn multi_type_supervisor_test() {
           glixir.permanent,
           5000,
           glixir.worker,
-          multi_args_encode,
         )
 
       case
@@ -808,7 +787,7 @@ pub fn multi_type_supervisor_test() {
           simple_decode,
         )
       {
-        supervisor.ChildStarted(child_pid, reply) -> {
+        supervisor.ChildStarted(_child_pid, _reply) -> {
           utils.debug_log(
             logging.Info,
             "✅ Multi-arg worker started successfully",
@@ -851,7 +830,6 @@ pub fn complex_args_supervisor_test() {
           glixir.permanent,
           5000,
           glixir.worker,
-          list_args_encode,
         )
 
       case
@@ -862,7 +840,7 @@ pub fn complex_args_supervisor_test() {
           simple_decode,
         )
       {
-        supervisor.ChildStarted(child_pid, reply) -> {
+        supervisor.ChildStarted(_child_pid, _reply) -> {
           utils.debug_log(logging.Info, "✅ List worker started successfully")
           True |> should.be_true
         }
@@ -904,8 +882,6 @@ pub fn type_compatibility_test() {
       glixir.permanent,
       5000,
       glixir.worker,
-      fn(args) { args },
-      // Pass through encoder for List(Dynamic)
     )
 
   utils.debug_log(logging.Info, "✅ All basic types work across FFI boundary")
@@ -926,7 +902,6 @@ pub fn child_spec_creation_test() {
       glixir.permanent,
       5000,
       glixir.worker,
-      string_encode,
     )
 
   spec.id |> should.equal("test_worker_1")
@@ -943,10 +918,6 @@ pub fn child_spec_with_custom_options_test() {
       glixir.temporary,
       10_000,
       glixir.worker,
-      fn(args) {
-        let #(str, num) = args
-        [dynamic.string(str), dynamic.int(num)]
-      },
     )
 
   spec.id |> should.equal("custom_worker")
@@ -966,7 +937,6 @@ pub fn restart_strategy_test() {
       glixir.permanent,
       5000,
       glixir.worker,
-      string_encode,
     )
 
   let temporary_spec =
@@ -978,7 +948,6 @@ pub fn restart_strategy_test() {
       glixir.temporary,
       5000,
       glixir.worker,
-      string_encode,
     )
 
   let transient_spec =
@@ -990,7 +959,6 @@ pub fn restart_strategy_test() {
       glixir.transient,
       5000,
       glixir.worker,
-      string_encode,
     )
 
   permanent_spec.id |> should.equal("perm")
@@ -1020,7 +988,6 @@ pub fn child_spec_properties_test() {
         glixir.permanent,
         5000,
         glixir.worker,
-        string_encode,
       )
     })
 
@@ -1111,7 +1078,7 @@ pub fn genserver_start_test() {
         }
       }
     }
-    Error(error) -> {
+    Error(_error) -> {
       utils.debug_log(
         logging.Warning,
         "⚠️ GenServer start failed (might be missing TestGenServer module)",
@@ -1182,7 +1149,7 @@ pub fn genserver_named_start_test() {
         }
       }
     }
-    Error(error) -> {
+    Error(_error) -> {
       utils.debug_log(
         logging.Warning,
         "⚠️ Named GenServer start failed (might be missing TestGenServer module)",
@@ -1207,7 +1174,7 @@ pub fn genserver_call_test() {
           decode.dynamic,
         )
       {
-        Ok(response) -> {
+        Ok(_response) -> {
           utils.debug_log(logging.Info, "✅ GenServer ping successful")
           case
             glixir.call_genserver(
@@ -1216,7 +1183,7 @@ pub fn genserver_call_test() {
               decode.dynamic,
             )
           {
-            Ok(state) -> {
+            Ok(_state) -> {
               utils.debug_log(logging.Info, "✅ GenServer get_state successful")
               let _ =
                 glixir.cast_genserver(
@@ -1253,7 +1220,7 @@ pub fn genserver_call_test() {
         }
       }
     }
-    Error(error) -> {
+    Error(_error) -> {
       utils.debug_log(
         logging.Warning,
         "⚠️ GenServer start for call test failed (might be missing TestGenServer module)",
@@ -1283,7 +1250,7 @@ pub fn genserver_call_named_test() {
           decode.dynamic,
         )
       {
-        Ok(response) -> {
+        Ok(_response) -> {
           utils.debug_log(logging.Info, "✅ Named GenServer call successful")
           let _ =
             glixir.cast_genserver(
@@ -1306,7 +1273,7 @@ pub fn genserver_call_named_test() {
         }
       }
     }
-    Error(error) -> {
+    Error(_error) -> {
       utils.debug_log(
         logging.Warning,
         "⚠️ Named GenServer start for call test failed (might be missing TestGenServer module)",
@@ -1411,7 +1378,7 @@ pub fn genserver_cast_test() {
         }
       }
     }
-    Error(error) -> {
+    Error(_error) -> {
       utils.debug_log(
         logging.Warning,
         "⚠️ GenServer start for cast test failed (might be missing TestGenServer module)",
@@ -1440,7 +1407,7 @@ pub fn genserver_timeout_test() {
           decode.dynamic,
         )
       {
-        Ok(response) -> {
+        Ok(_response) -> {
           utils.debug_log(
             logging.Info,
             "✅ GenServer call with timeout successful",
@@ -1466,7 +1433,7 @@ pub fn genserver_timeout_test() {
         }
       }
     }
-    Error(error) -> {
+    Error(_error) -> {
       utils.debug_log(
         logging.Warning,
         "⚠️ GenServer start for timeout test failed (might be missing TestGenServer module)",
@@ -1591,7 +1558,7 @@ pub fn genserver_lifecycle_test() {
         }
       }
     }
-    Error(error) -> {
+    Error(_error) -> {
       utils.debug_log(
         logging.Warning,
         "⚠️ GenServer start for lifecycle test failed (might be missing TestGenServer module)",

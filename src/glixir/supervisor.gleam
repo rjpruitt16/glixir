@@ -155,12 +155,6 @@ fn child_type_to_string(t: ChildType) -> String {
   }
 }
 
-// Use a generic encoder for child args
-pub fn encode_child_args(child_args: a) -> List(Dynamic) {
-  // Users should provide their own encoder! (or you could supply some common ones)
-  []
-}
-
 // ============ PUBLIC API ==============
 
 /// Start a named dynamic supervisor with bounded child types
@@ -187,6 +181,34 @@ pub fn start_dynamic_supervisor_named(
   }
 }
 
+/// SAFE: Start a named dynamic supervisor with string name (no atom creation)
+/// Use this for user-generated names to avoid atom table exhaustion
+pub fn start_dynamic_supervisor_named_safe(
+  name: String,
+) -> Result(DynamicSupervisor(child_args, child_reply), SupervisorError) {
+  utils.debug_log(
+    logging.Debug,
+    "[supervisor] Starting supervisor (safe): " <> name,
+  )
+
+  case start_dynamic_supervisor_named_ffi(name) {
+    DynamicSupervisorOk(pid) -> {
+      utils.debug_log(
+        logging.Info,
+        "[supervisor] Supervisor started successfully (safe)",
+      )
+      Ok(DynamicSupervisor(pid))
+    }
+    DynamicSupervisorError(reason) -> {
+      utils.debug_log(
+        logging.Error,
+        "[supervisor] Supervisor start failed (safe)",
+      )
+      Error(StartError(string.inspect(reason)))
+    }
+  }
+}
+
 /// Build a type-safe child spec  
 pub fn child_spec(
   id id: String,
@@ -196,7 +218,6 @@ pub fn child_spec(
   restart restart: RestartStrategy,
   shutdown_timeout shutdown_timeout: Int,
   child_type child_type: ChildType,
-  encode encode: fn(child_args) -> List(Dynamic),
 ) -> ChildSpec(child_args, child_reply) {
   ChildSpec(
     id,
@@ -316,15 +337,6 @@ pub fn which_dynamic_children(
     "[supervisor] Found " <> int.to_string(list.length(result)) <> " children",
   )
   result
-}
-
-fn child_counts_decoder() -> decode.Decoder(ChildCounts) {
-  // This is idiomatic Gleam "record decoder" syntax
-  use specs <- decode.field("specs", decode.int)
-  use active <- decode.field("active", decode.int)
-  use supervisors <- decode.field("supervisors", decode.int)
-  use workers <- decode.field("workers", decode.int)
-  decode.success(ChildCounts(specs, active, supervisors, workers))
 }
 
 pub fn count_dynamic_children(

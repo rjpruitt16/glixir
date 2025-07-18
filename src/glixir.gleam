@@ -7,9 +7,6 @@ import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid, type Subject}
-import gleam/json
-import gleam/list
-import gleam/option
 import gleam/string
 import glixir/agent
 import glixir/genserver
@@ -284,6 +281,31 @@ pub fn start_dynamic_supervisor_named(
   }
 }
 
+pub fn start_dynamic_supervisor_named_safed(
+  name: String,
+) -> Result(DynamicSupervisor(child_args, child_reply), SupervisorError) {
+  utils.debug_log(
+    logging.Info,
+    "[glixir] Starting dynamic supervisor: " <> name,
+  )
+  case supervisor.start_dynamic_supervisor_named_safe(name) {
+    Ok(sup) -> {
+      utils.debug_log(
+        logging.Info,
+        "[glixir] Dynamic supervisor started successfully",
+      )
+      Ok(sup)
+    }
+    Error(error) -> {
+      utils.debug_log(
+        logging.Error,
+        "[glixir] Dynamic supervisor start failed: " <> string.inspect(error),
+      )
+      Error(error)
+    }
+  }
+}
+
 /// Build a bounded, type-safe child spec
 pub fn child_spec(
   id id: String,
@@ -293,7 +315,6 @@ pub fn child_spec(
   restart restart: RestartStrategy,
   shutdown_timeout shutdown_timeout: Int,
   child_type child_type: ChildType,
-  encode encode: fn(child_args) -> List(Dynamic),
 ) -> ChildSpec(child_args, child_reply) {
   supervisor.child_spec(
     id: id,
@@ -303,7 +324,6 @@ pub fn child_spec(
     restart: restart,
     shutdown_timeout: shutdown_timeout,
     child_type: child_type,
-    encode: encode,
   )
 }
 
@@ -317,7 +337,7 @@ pub fn start_dynamic_child(
   utils.debug_log(logging.Info, "[glixir] Starting child: " <> spec.id)
   let result = supervisor.start_dynamic_child(sup, spec, encode, decode)
   case result {
-    supervisor.ChildStarted(pid, reply) ->
+    supervisor.ChildStarted(_pid, _reply) ->
       utils.debug_log(
         logging.Info,
         "[glixir] Child started successfully: " <> spec.id,
