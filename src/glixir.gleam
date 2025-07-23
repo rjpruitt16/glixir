@@ -7,6 +7,7 @@ import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid, type Subject}
+import gleam/list
 import gleam/string
 import glixir/agent
 import glixir/genserver
@@ -254,6 +255,26 @@ pub const duplicate = registry.Duplicate
 // =====================
 // SUPERVISOR (NEW BOUNDED API)
 // =====================
+
+/// Get all child processes from a dynamic supervisor
+pub fn get_all_dynamic_children(
+  sup: DynamicSupervisor(child_args, child_reply),
+) -> Result(List(process.Subject(child_reply)), String) {
+  utils.debug_log(logging.Info, "[glixir] Getting all dynamic children")
+  let result = supervisor.get_all_dynamic_children(sup)
+  case result {
+    Ok(children) ->
+      utils.debug_log(
+        logging.Info,
+        "[glixir] Found "
+          <> string.inspect(list.length(children))
+          <> " children",
+      )
+    Error(e) ->
+      utils.debug_log(logging.Error, "[glixir] Failed to get children: " <> e)
+  }
+  result
+}
 
 /// Start a named dynamic supervisor (you must always specify child_args, child_reply types)
 pub fn start_dynamic_supervisor_named(

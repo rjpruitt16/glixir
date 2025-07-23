@@ -112,6 +112,11 @@ pub type DynamicTerminateResult {
   DynamicTerminateChildError(reason: Dynamic)
 }
 
+pub type GetAllChildrenResult(child_reply) {
+  GetAllChildrenOk(pids: List(process.Subject(child_reply)))
+  GetAllChildrenError(reason: Dynamic)
+}
+
 // ============ FFI BINDINGS ==============
 @external(erlang, "Elixir.Glixir.Supervisor", "start_dynamic_supervisor_named")
 fn start_dynamic_supervisor_named_ffi(name: String) -> DynamicSupervisorResult
@@ -137,6 +142,9 @@ fn count_dynamic_children_ffi(pid: Pid) -> Dynamic
 
 @external(erlang, "erlang", "binary_to_atom")
 fn binary_to_atom(name: String) -> Atom
+
+@external(erlang, "Elixir.Glixir.Supervisor", "get_all_dynamic_children")
+fn get_all_dynamic_children_ffi(pid: Pid) -> GetAllChildrenResult(child_reply)
 
 // ============ HELPERS ==============
 
@@ -363,6 +371,30 @@ pub fn count_dynamic_children(
     Error(errors) -> {
       utils.debug_log(logging.Error, "[supervisor] Child count decode failed")
       Error("decode error: " <> string.inspect(errors))
+    }
+  }
+}
+
+// Get all child PIDs for sending messages
+pub fn get_all_dynamic_children(
+  supervisor: DynamicSupervisor(child_args, child_reply),
+) -> Result(List(process.Subject(child_reply)), String) {
+  let DynamicSupervisor(pid) = supervisor
+  utils.debug_log(logging.Debug, "[supervisor] Getting all child PIDs")
+
+  case get_all_dynamic_children_ffi(pid) {
+    GetAllChildrenOk(pids) -> {
+      utils.debug_log(
+        logging.Debug,
+        "[supervisor] Retrieved "
+          <> int.to_string(list.length(pids))
+          <> " child PIDs",
+      )
+      Ok(pids)
+    }
+    GetAllChildrenError(reason) -> {
+      utils.debug_log(logging.Error, "[supervisor] Failed to get children")
+      Error(string.inspect(reason))
     }
   }
 }

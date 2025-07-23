@@ -479,4 +479,15 @@ defmodule Glixir.Supervisor do
         {:get_childspec_ok, childspec}
     end
   end
+
+  # Add to lib/supervisor.ex
+  def get_all_dynamic_children(supervisor) do
+    debug_log(:debug, "Getting all dynamic children for supervisor: #{inspect(supervisor)}")
+    
+    children = DynamicSupervisor.which_children(supervisor)
+    child_pids = Enum.map(children, fn {_id, pid, _type, _modules} -> pid end)
+    
+    debug_log(:debug, "Found #{length(child_pids)} child PIDs")
+    {:get_all_children_ok, child_pids}
+  end
 end

@@ -577,6 +577,24 @@ pub fn supervisor_child_management_test() {
         supervisor.ChildStarted(child_pid, _reply) -> {
           utils.debug_log(logging.Info, "✅ Child worker started!")
 
+          // TEST: Get all children before termination
+          case glixir.get_all_dynamic_children(sup) {
+            Ok(children) -> {
+              utils.debug_log(
+                logging.Info,
+                "✅ Found "
+                  <> int.to_string(list.length(children))
+                  <> " children",
+              )
+            }
+            Error(e) -> {
+              utils.debug_log(
+                logging.Warning,
+                "⚠️ Failed to get children: " <> e,
+              )
+            }
+          }
+
           case process.is_alive(child_pid) {
             True -> {
               utils.debug_log(logging.Info, "✅ Child process is alive")
@@ -595,6 +613,24 @@ pub fn supervisor_child_management_test() {
                     logging.Info,
                     "✅ Child terminated successfully",
                   )
+
+                  // TEST: Get all children after termination  
+                  case glixir.get_all_dynamic_children(sup) {
+                    Ok(children) -> {
+                      utils.debug_log(
+                        logging.Info,
+                        "✅ After termination: "
+                          <> int.to_string(list.length(children))
+                          <> " children remain",
+                      )
+                    }
+                    Error(e) -> {
+                      utils.debug_log(
+                        logging.Warning,
+                        "⚠️ Failed to get children after termination: " <> e,
+                      )
+                    }
+                  }
                 }
                 Error(error) -> {
                   utils.debug_log(
