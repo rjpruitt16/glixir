@@ -17,6 +17,7 @@ Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. 
 - ✅ **Phoenix.PubSub** - Distributed messaging with JSON-based type safety
 - ✅ **Zero overhead** - Direct BEAM interop with clean Elixir helpers
 - ✅ **Gradual adoption** - Use alongside existing Elixir code
+- ✅ **syn** - Distributed process registry and PubSub coordination
 
 ---
 
@@ -38,6 +39,7 @@ Supervisor:    [■■■■■■■■■□] 90% - Phantom-typed with compile
 Registry:      [■■■■■■■■■□] 90% - Phantom-typed with compile-time key/message validation, requires key encoders.
 Agent:         [■■■■■■■■■■] 100% - State and API fully generic and type safe!
 PubSub:        [■■■■■■■■□□] 80% - JSON-based type safety with user-defined encoders/decoders. Phantom-typed for message_type.
+syn:           [■■■■■■■■□□] 80% - Distributed coordination with type-safe message patterns, runtime node discovery.
 Task:          [□□□□□□□□□□] 0% - Not started.
 ```
 
@@ -87,6 +89,65 @@ Glixir provides **bounded type safety** - the maximum safety possible while main
 _This makes glixir safer by default—don't trust user input as atom names!_
 
 ---
+
+
+### syn - Distributed Process Coordination
+
+**Distributed service discovery and event streaming across BEAM nodes! 🌐**
+
+Use Erlang's battle-tested `syn` library for distributed coordination, consensus algorithms, and fault-tolerant process management.
+
+```gleam
+import glixir/syn
+import gleam/json
+
+pub fn distributed_example() {
+  // Initialize scopes at application startup
+  syn.init_scopes(["worker_pools", "coordination"])
+  
+  // Register this process in a distributed pool
+  let load_info = #(cpu_usage: 0.3, queue_size: 5)
+  let assert Ok(_) = syn.register_worker("image_processors", "worker_1", load_info)
+  
+  // Find workers across the cluster
+  case syn.find_worker("image_processors", "worker_1") {
+    Ok(#(pid, #(cpu_usage, queue_size))) -> {
+      // Send work to the least loaded worker
+      process.send(pid, ProcessImage("photo.jpg"))
+    }
+    Error(_) -> // Worker not available, try another
+  }
+  
+  // Join coordination group for consensus
+  let assert Ok(_) = syn.join_coordination("leader_election")
+  
+  // Broadcast status for distributed coordination
+  let status = json.object([
+    #("node", json.string("worker_node_1")),
+    #("load", json.float(0.3)),
+    #("available", json.bool(True))
+  ])
+  
+  let assert Ok(nodes_notified) = syn.broadcast_status("health_check", status)
+  io.println("Status sent to " <> int.to_string(nodes_notified) <> " nodes")
+}
+
+// Advanced: Custom coordination patterns
+pub fn consensus_example() {
+  // Register with metadata for consensus algorithms
+  let machine_status = #(queue_lengths: #(0, 5, 2), capacity: 100)
+  let assert Ok(_) = syn.register("machines", "machine_1", machine_status)
+  
+  // Publish for distributed decision making
+  let queue_status = json.object([
+    #("machine_id", json.string("machine_1")),
+    #("free_queue", json.int(0)),
+    #("paid_queue", json.int(5)),
+    #("capacity", json.int(100))
+  ])
+  
+  let assert Ok(_) = syn.publish_json("coordination", "load_balancing", queue_status, fn(j) { j })
+}
 
 ## Installation
 
