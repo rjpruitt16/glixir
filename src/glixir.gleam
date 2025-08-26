@@ -256,6 +256,15 @@ pub const duplicate = registry.Duplicate
 // SUPERVISOR (NEW BOUNDED API)
 // =====================
 
+/// Start an unnamed dynamic supervisor
+pub fn start_dynamic_supervisor() -> Result(
+  DynamicSupervisor(child_args, child_reply),
+  SupervisorError,
+) {
+  utils.debug_log(logging.Info, "[glixir] Starting unnamed dynamic supervisor")
+  supervisor.start_dynamic_supervisor()
+}
+
 /// Get all child processes from a dynamic supervisor
 pub fn get_all_dynamic_children(
   sup: DynamicSupervisor(child_args, child_reply),

@@ -217,6 +217,32 @@ pub fn start_dynamic_supervisor_named_safe(
   }
 }
 
+/// Start an unnamed dynamic supervisor (no atom creation needed)
+pub fn start_dynamic_supervisor() -> Result(
+  DynamicSupervisor(child_args, child_reply),
+  SupervisorError,
+) {
+  utils.debug_log(logging.Debug, "[supervisor] Starting unnamed supervisor")
+
+  // Pass empty string for unnamed supervisor
+  case start_dynamic_supervisor_named_ffi("") {
+    DynamicSupervisorOk(pid) -> {
+      utils.debug_log(
+        logging.Info,
+        "[supervisor] Unnamed supervisor started successfully",
+      )
+      Ok(DynamicSupervisor(pid))
+    }
+    DynamicSupervisorError(reason) -> {
+      utils.debug_log(
+        logging.Error,
+        "[supervisor] Unnamed supervisor start failed",
+      )
+      Error(StartError(string.inspect(reason)))
+    }
+  }
+}
+
 /// Build a type-safe child spec  
 pub fn child_spec(
   id id: String,

@@ -15,7 +15,6 @@ import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
 import gleam/json
 import gleam/list
-import gleam/result
 import gleam/string
 import glixir/utils
 import logging
