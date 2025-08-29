@@ -43,6 +43,50 @@ pub type PubSubError {
   PublishFailed(String)
 }
 
+// Define result types for pattern matching
+pub type WhereisResult {
+  NotFound
+  FoundPidOnly(Pid)
+  FoundWithMetadata(Pid, Dynamic)
+  WhereisError(String)
+}
+
+pub type SynWhereisResult {
+  SynNotFound
+  SynFoundPidOnly(Pid)
+  SynFoundWithMetadata(Pid, Dynamic)
+  SynError(Dynamic)
+}
+
+pub type SynRegisterResult {
+  SynRegisterOk
+  SynRegisterError(Dynamic)
+}
+
+// Add these result types
+pub type SynUnregisterResult {
+  SynUnregisterOk
+  SynUnregisterError(Dynamic)
+}
+
+pub type SynLookupResult {
+  SynLookupNotFound
+  SynLookupFound(Pid, Dynamic)
+  SynLookupError(Dynamic)
+}
+
+pub type SynMembersResult {
+  SynMembersEmpty
+  SynMembersList(List(#(String, Pid, Dynamic)))
+  SynMembersError(Dynamic)
+}
+
+pub type SynIsMemberResult {
+  SynIsMemberTrue
+  SynIsMemberFalse
+  SynIsMemberError(Dynamic)
+}
+
 // ============================================================================
 // FFI BINDINGS
 // ============================================================================
@@ -51,20 +95,34 @@ pub type PubSubError {
 @external(erlang, "syn", "add_node_to_scopes")
 fn syn_add_node_to_scopes(scopes: List(Atom)) -> SynOk
 
-// Registry operations
-@external(erlang, "syn", "register")
-fn syn_register(
-  scope: Atom,
+// Update FFI declarations to use these types
+@external(erlang, "glixir_syn", "whereis_name")
+fn syn_whereis_bridge(scope: String, name: String) -> SynWhereisResult
+
+@external(erlang, "glixir_syn", "register")
+fn syn_register_bridge(
+  scope: String,
   name: String,
   pid: Pid,
   metadata: Dynamic,
-) -> SynResult
+) -> SynRegisterResult
 
-@external(erlang, "syn", "whereis_name")
-fn syn_whereis_name(scope_name: Dynamic) -> Dynamic
+// Add FFI bindings
+@external(erlang, "glixir_syn", "unregister")
+fn syn_unregister_bridge(scope: String, name: String) -> SynUnregisterResult
 
-@external(erlang, "syn", "unregister")
-fn syn_unregister(scope: Atom, name: String) -> SynResult
+@external(erlang, "glixir_syn", "lookup")
+fn syn_lookup_bridge(scope: String, name: String) -> SynLookupResult
+
+@external(erlang, "glixir_syn", "members")
+fn syn_members_bridge(scope: String, group: String) -> SynMembersResult
+
+@external(erlang, "glixir_syn", "is_member")
+fn syn_is_member_bridge(
+  scope: String,
+  name: String,
+  pid: Pid,
+) -> SynIsMemberResult
 
 // PubSub operations
 @external(erlang, "syn", "join")
@@ -79,9 +137,6 @@ fn syn_publish(
   group: String,
   message: Dynamic,
 ) -> Result(Int, Dynamic)
-
-@external(erlang, "syn", "members")
-fn syn_members(scope: Atom, group: String) -> List(Pid)
 
 @external(erlang, "syn", "member_count")
 fn syn_member_count(scope: Atom, group: String) -> Int
@@ -142,12 +197,13 @@ pub fn init_scopes(scopes: List(String)) -> Nil {
 /// // Register a user session
 /// syn.register("user_sessions", user_id, #(username, last_active))
 /// ```
+// Update your whereis function to use the bridge
+// And register becomes:
 pub fn register(
   scope: String,
   name: String,
   metadata: metadata,
 ) -> Result(Nil, RegistryError) {
-  let scope_atom = atom.create(scope)
   let current_pid = process.self()
 
   utils.debug_log_with_prefix(
@@ -156,23 +212,21 @@ pub fn register(
     "Registering process: " <> scope <> "/" <> name,
   )
 
-  case syn_register(scope_atom, name, current_pid, to_dynamic(metadata)) {
-    result ->
-      case syn_result_to_gleam(result) {
-        Ok(Nil) -> {
-          utils.debug_log_with_prefix(
-            logging.Info,
-            "syn",
-            "Registered successfully: " <> name,
-          )
-          Ok(Nil)
-        }
-        Error(reason) -> {
-          let error_msg = "Registration failed: " <> string.inspect(reason)
-          utils.debug_log_with_prefix(logging.Error, "syn", error_msg)
-          Error(RegistrationFailed(error_msg))
-        }
-      }
+  case syn_register_bridge(scope, name, current_pid, to_dynamic(metadata)) {
+    SynRegisterOk -> {
+      utils.debug_log_with_prefix(
+        logging.Info,
+        "syn",
+        "Registered successfully: " <> name,
+      )
+      Ok(Nil)
+    }
+
+    SynRegisterError(reason) -> {
+      let error_msg = "Registration failed: " <> string.inspect(reason)
+      utils.debug_log_with_prefix(logging.Error, "syn", error_msg)
+      Error(RegistrationFailed(error_msg))
+    }
   }
 }
 
@@ -190,34 +244,40 @@ pub fn whereis(
   scope: String,
   name: String,
 ) -> Result(#(Pid, metadata), RegistryError) {
-  let scope_atom = atom.create(scope)
-  let scope_name = #(scope_atom, name)
-
   utils.debug_log_with_prefix(
     logging.Debug,
     "syn",
     "Looking up process: " <> scope <> "/" <> name,
   )
 
-  case syn_whereis_name(to_dynamic(scope_name)) {
-    result -> {
-      // syn returns 'undefined' atom when not found, or {Pid, Metadata} when found
-      case to_dynamic(result) == to_dynamic(atom.create("undefined")) {
-        True -> {
-          let error_msg = "Process not found: " <> scope <> "/" <> name
-          utils.debug_log_with_prefix(logging.Debug, "syn", error_msg)
-          Error(LookupFailed(error_msg))
-        }
-        False -> {
-          let #(pid, metadata) = from_dynamic(result)
-          utils.debug_log_with_prefix(
-            logging.Debug,
-            "syn",
-            "Found process: " <> scope <> "/" <> name,
-          )
-          Ok(#(pid, metadata))
-        }
-      }
+  case syn_whereis_bridge(scope, name) {
+    SynNotFound -> {
+      let error_msg = "Process not found: " <> scope <> "/" <> name
+      utils.debug_log_with_prefix(logging.Debug, "syn", error_msg)
+      Error(LookupFailed(error_msg))
+    }
+
+    SynFoundPidOnly(_pid) -> {
+      let error_msg =
+        "Process found but has no metadata: " <> scope <> "/" <> name
+      utils.debug_log_with_prefix(logging.Warning, "syn", error_msg)
+      Error(LookupFailed(error_msg))
+    }
+
+    SynFoundWithMetadata(pid, metadata_dyn) -> {
+      let metadata = from_dynamic(metadata_dyn)
+      utils.debug_log_with_prefix(
+        logging.Debug,
+        "syn",
+        "Found process with metadata: " <> scope <> "/" <> name,
+      )
+      Ok(#(pid, metadata))
+    }
+
+    SynError(reason) -> {
+      let error_msg = "Syn error: " <> string.inspect(reason)
+      utils.debug_log_with_prefix(logging.Error, "syn", error_msg)
+      Error(LookupFailed(error_msg))
     }
   }
 }
@@ -229,32 +289,30 @@ pub fn whereis(
 /// ```gleam
 /// syn.unregister("user_sessions", user_id)
 /// ```
-pub fn unregister(scope: String, name: String) -> Result(Nil, RegistryError) {
-  let scope_atom = atom.create(scope)
+// Update unregister to use the bridge
 
+pub fn unregister(scope: String, name: String) -> Result(Nil, RegistryError) {
   utils.debug_log_with_prefix(
     logging.Debug,
     "syn",
     "Unregistering process: " <> scope <> "/" <> name,
   )
 
-  case syn_unregister(scope_atom, name) {
-    result ->
-      case syn_result_to_gleam(result) {
-        Ok(Nil) -> {
-          utils.debug_log_with_prefix(
-            logging.Info,
-            "syn",
-            "Unregistered successfully: " <> name,
-          )
-          Ok(Nil)
-        }
-        Error(reason) -> {
-          let error_msg = "Unregistration failed: " <> string.inspect(reason)
-          utils.debug_log_with_prefix(logging.Error, "syn", error_msg)
-          Error(UnregistrationFailed(error_msg))
-        }
-      }
+  case syn_unregister_bridge(scope, name) {
+    SynUnregisterOk -> {
+      utils.debug_log_with_prefix(
+        logging.Info,
+        "syn",
+        "Unregistered successfully: " <> name,
+      )
+      Ok(Nil)
+    }
+
+    SynUnregisterError(reason) -> {
+      let error_msg = "Unregistration failed: " <> string.inspect(reason)
+      utils.debug_log_with_prefix(logging.Error, "syn", error_msg)
+      Error(UnregistrationFailed(error_msg))
+    }
   }
 }
 
@@ -411,9 +469,60 @@ pub fn publish_json(
 /// let active_users = syn.members("user_sessions", "online")
 /// io.println("Active users: " <> string.inspect(list.length(active_users)))
 /// ```
-pub fn members(scope: String, group: String) -> List(Pid) {
-  let scope_atom = atom.create(scope)
-  syn_members(scope_atom, group)
+// Update unregister to use the bridge
+// Add lookup function (alternative to whereis that uses syn:lookup)
+pub fn lookup(
+  scope: String,
+  name: String,
+) -> Result(#(Pid, metadata), RegistryError) {
+  utils.debug_log_with_prefix(
+    logging.Debug,
+    "syn",
+    "Looking up (via lookup): " <> scope <> "/" <> name,
+  )
+
+  case syn_lookup_bridge(scope, name) {
+    SynLookupNotFound -> {
+      Error(LookupFailed("Process not found: " <> scope <> "/" <> name))
+    }
+
+    SynLookupFound(pid, metadata_dyn) -> {
+      let metadata = from_dynamic(metadata_dyn)
+      Ok(#(pid, metadata))
+    }
+
+    SynLookupError(reason) -> {
+      Error(LookupFailed("Lookup error: " <> string.inspect(reason)))
+    }
+  }
+}
+
+// Add function to get detailed member list
+pub fn members_detailed(
+  scope: String,
+  group: String,
+) -> List(#(String, Pid, metadata)) {
+  case syn_members_bridge(scope, group) {
+    SynMembersEmpty -> []
+
+    SynMembersList(members) -> {
+      list.map(members, fn(member) {
+        let #(name, pid, meta_dyn) = member
+        #(name, pid, from_dynamic(meta_dyn))
+      })
+    }
+
+    SynMembersError(_) -> []
+  }
+}
+
+// Add is_member check
+pub fn is_member(scope: String, name: String, pid: Pid) -> Bool {
+  case syn_is_member_bridge(scope, name, pid) {
+    SynIsMemberTrue -> True
+    SynIsMemberFalse -> False
+    SynIsMemberError(_) -> False
+  }
 }
 
 /// Get count of processes subscribed to a group.

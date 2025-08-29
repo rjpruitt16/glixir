@@ -4,7 +4,6 @@ import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
 import gleam/result
 import gleam/string
-import logging
 
 pub opaque type GenServer(request, reply) {
   GenServer(pid: Pid)
@@ -132,7 +131,7 @@ pub fn lookup_name(
   }
 }
 
-pub fn stop(server: GenServer(request, reply)) -> Result(Nil, GenServerError) {
+pub fn stop(_server: GenServer(request, reply)) -> Result(Nil, GenServerError) {
   Error(CastError("Use cast/call with explicit Atom message for stop"))
 }
 
