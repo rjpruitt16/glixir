@@ -8,27 +8,11 @@ log_debug(Message) ->
 %% Bridge function for registration
 register(Scope, Name, Pid, Metadata) when is_binary(Scope), is_binary(Name), is_pid(Pid) ->
     ScopeAtom = binary_to_atom(Scope, utf8),
-    
     log_debug(io_lib:format("Registering: Scope=~p, Name=~p, Pid=~p, Metadata=~p", 
                             [ScopeAtom, Name, Pid, Metadata])),
     
-    % The issue: syn:register/4 exists but might not be storing metadata correctly
-    % Let's try calling it properly
-    Result = case erlang:function_exported(syn, register, 4) of
-        true ->
-            syn:register(ScopeAtom, Name, Pid, Metadata);
-        false ->
-            % Fall back to 3-arg version
-            syn:register(ScopeAtom, Name, Pid)
-    end,
-    
-    % Debug: Check what was actually stored
-    StoredResult = syn:whereis_name({ScopeAtom, Name}),
-    log_debug(io_lib:format("After register, whereis returns: ~p", [StoredResult])),
-    
-    % Also try syn:lookup which might give us metadata
-    LookupResult = syn:lookup(ScopeAtom, Name),
-    log_debug(io_lib:format("After register, lookup returns: ~p", [LookupResult])),
+    % Use the 4-argument version of syn:register
+    Result = syn:register(ScopeAtom, Name, Pid, Metadata),
     
     case Result of
         ok ->
@@ -37,27 +21,24 @@ register(Scope, Name, Pid, Metadata) when is_binary(Scope), is_binary(Name), is_
             {syn_register_error, Reason}
     end.
 
-%% Rest of the functions...
+%% Use syn:lookup instead of whereis_name since whereis_name doesn't return metadata
 whereis_name(Scope, Name) when is_binary(Scope), is_binary(Name) ->
     ScopeAtom = binary_to_atom(Scope, utf8),
-    Result = syn:whereis_name({ScopeAtom, Name}),
     
-    log_debug(io_lib:format("whereis_name raw result: ~p", [Result])),
+    % Use lookup which returns {Pid, Metadata}
+    Result = syn:lookup(ScopeAtom, Name),
+    log_debug(io_lib:format("whereis using lookup, raw result: ~p", [Result])),
     
     case Result of
         undefined ->
             syn_not_found;
-        
-        Pid when is_pid(Pid) ->
-            {syn_found_pid_only, Pid};
-            
         {Pid, Metadata} when is_pid(Pid) ->
             {syn_found_with_metadata, Pid, Metadata};
-            
         Other ->
             {syn_error, Other}
     end.
 
+%% Rest of the functions remain the same...
 unregister(Scope, Name) when is_binary(Scope), is_binary(Name) ->
     ScopeAtom = binary_to_atom(Scope, utf8),
     
