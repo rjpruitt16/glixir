@@ -7,9 +7,12 @@ packages = [
   { name = "gleam_json", version = "3.0.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_json", source = "hex", outer_checksum = "874FA3C3BB6E22DD2BB111966BD40B3759E9094E05257899A7C08F5DE77EC049" },
   { name = "gleam_stdlib", version = "0.61.0", build_tools = ["gleam"], requirements = [], otp_app = "gleam_stdlib", source = "hex", outer_checksum = "3DC407D6EDA98FCE089150C11F3AD892B6F4C3CA77C87A97BAE8D5AB5E41F331" },
   { name = "gleeunit", version = "1.6.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleeunit", source = "hex", outer_checksum = "63022D81C12C17B7F1A60E029964E830A4CBD846BBC6740004FC1F1031AE0326" },
+  { name = "jason", version = "1.4.4", build_tools = ["mix"], requirements = ["decimal"], otp_app = "jason", source = "hex", outer_checksum = "C5EB0CAB91F094599F94D55BC63409236A8EC69A21A67814529E8D5F6CC90B3B" },
+  { name = "libcluster", version = "3.5.0", build_tools = ["mix"], requirements = ["jason", "telemetry"], otp_app = "libcluster", source = "hex", outer_checksum = "EBF6561FCEDD765A4CD43B4B8C04B1C87F4177B5FB3CBDFE40A780499D72F743" },
   { name = "logging", version = "1.3.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "logging", source = "hex", outer_checksum = "1098FBF10B54B44C2C7FDF0B01C1253CAFACDACABEFB4B0D027803246753E06D" },
   { name = "phoenix_pubsub", version = "2.1.3", build_tools = ["mix"], requirements = [], otp_app = "phoenix_pubsub", source = "hex", outer_checksum = "BBA06BC1DCFD8CB086759F0EDC94A8BA2BC8896D5331A1E2C2902BF8E36EE502" },
   { name = "syn", version = "3.3.0", build_tools = ["rebar3"], requirements = [], otp_app = "syn", source = "hex", outer_checksum = "E58EE447BC1094BDD21BF0ACC102B1FBF99541A508CD48060BF783C245EAF7D6" },
+  { name = "telemetry", version = "1.3.0", build_tools = ["rebar3"], requirements = [], otp_app = "telemetry", source = "hex", outer_checksum = "7015FC8919DBE63764F4B4B87A95B7C0996BD539E0D499BE6EC9D7F3875B79E6" },
 ]
 
 [requirements]
@@ -18,6 +21,7 @@ gleam_erlang = { version = ">= 0.34.0 and < 2.0.0" }
 gleam_json = { version = ">= 3.0.2 and < 4.0.0" }
 gleam_stdlib = { version = ">= 0.34.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
+libcluster = { version = ">= 3.5.0 and < 4.0.0" }
 logging = { version = ">= 1.3.0 and < 2.0.0" }
 phoenix_pubsub = { version = ">= 2.1.3 and < 3.0.0" }
 syn = { version = ">= 3.3.0 and < 4.0.0" }

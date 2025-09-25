@@ -15,6 +15,7 @@ Bridge the gap between Gleam's type safety and the battle-tested OTP ecosystem. 
 - ✅ **Registry** - Dynamic process registration and Subject lookup
 - 🚧 **Task** - Async task execution _(coming soon)_
 - ✅ **Phoenix.PubSub** - Distributed messaging with JSON-based type safety
+- ✅ libcluster - Automatic node discovery and clustering for distributed systems
 - ✅ **Zero overhead** - Direct BEAM interop with clean Elixir helpers
 - ✅ **Gradual adoption** - Use alongside existing Elixir code
 - ✅ **syn** - Distributed process registry and PubSub coordination
@@ -39,6 +40,7 @@ Supervisor:    [■■■■■■■■■□] 90% - Phantom-typed with compile
 Registry:      [■■■■■■■■■□] 90% - Phantom-typed with compile-time key/message validation, requires key encoders.
 Agent:         [■■■■■■■■■■] 100% - State and API fully generic and type safe!
 PubSub:        [■■■■■■■■□□] 80% - JSON-based type safety with user-defined encoders/decoders. Phantom-typed for message_type.
+libcluster:    [■■■■■■■□□□] 70% - Node discovery works, cluster membership is runtime dynamic
 syn:           [■■■■■■■■□□] 80% - Distributed coordination with type-safe message patterns, runtime node discovery.
 Task:          [□□□□□□□□□□] 0% - Not started.
 ```
@@ -89,6 +91,90 @@ Glixir provides **bounded type safety** - the maximum safety possible while main
 _This makes glixir safer by default—don't trust user input as atom names!_
 
 ---
+
+## libcluster - Automatic Node Discovery & Clustering
+Scale your Gleam apps across multiple nodes with zero configuration! 🌐
+libcluster provides automatic node discovery and clustering for distributed BEAM applications, with built-in support for Fly.io, Kubernetes, AWS, and local development.
+```gleam
+import glixir/libcluster
+import gleam/erlang/os
+import logging
+
+pub fn main() {
+  // Auto-detect environment and start clustering
+  let _ = case os.get_env("FLY_APP_NAME") {
+    Ok(app_name) -> {
+      // Running on Fly.io - automatic DNS-based discovery
+      libcluster.start_clustering_fly(app_name)
+    }
+    Error(_) -> {
+      // Local development - use EPMD for simplicity
+      libcluster.start_clustering_local("my_app")
+    }
+  }
+  
+  // Check cluster status
+  io.println("Node: " <> libcluster.current_node_name())
+  io.println("Connected to: " <> string.inspect(libcluster.connected_node_names()))
+  
+  // Your distributed app starts here
+  // syn will automatically sync across all discovered nodes!
+  start_distributed_app()
+}
+
+// Production deployment with custom DNS
+pub fn production_clustering() {
+  // DNS-based discovery for production
+  let assert Ok(_) = libcluster.start_clustering_dns(
+    app_name: "my_app",
+    query: "my_app.service.consul",  // Consul, Kubernetes DNS, etc
+    polling_interval: 5000
+  )
+  
+  // Monitor cluster membership
+  case libcluster.is_clustered() {
+    True -> {
+      let nodes = libcluster.connected_nodes()
+      logging.info("Clustered with " <> int.to_string(list.length(nodes)) <> " nodes")
+    }
+    False -> {
+      logging.warning("Running in single-node mode")
+    }
+  }
+}
+
+// Combine with syn for distributed process coordination
+pub fn distributed_workers() {
+  // Start clustering
+  let assert Ok(_) = libcluster.start_clustering_fly("worker_pool")
+  
+  // syn automatically discovers all nodes via libcluster!
+  syn.init_scopes(["workers"])
+  
+  // This registration is visible across ALL nodes
+  syn.register("workers", "worker_1", self())
+  
+  // Find workers on ANY node in the cluster
+  case syn.whereis("workers", "worker_1") {
+    Ok(#(pid, node)) -> {
+      io.println("Found worker on node: " <> atom.to_string(node))
+    }
+    Error(_) -> io.println("Worker not found in cluster")
+  }
+}
+```
+Supported Clustering Strategies:
+- Fly.io - Automatic DNS discovery via APP_NAME.internal
+- Kubernetes - Service discovery via DNS or API
+- AWS EC2 - Tag-based instance discovery
+- Local Dev - EPMD for testing multi-node locally
+- Custom DNS - Any DNS-based service discovery
+Use Cases:
+- Distributed job queues across multiple machines
+- Fault-tolerant services with automatic failover
+- Load balancing across geographic regions
+- Consensus algorithms and leader election
+- Real-time data synchronization
 
 
 ### syn - Distributed Process Coordination
