@@ -516,6 +516,32 @@ pub fn members_detailed(
   }
 }
 
+/// Get list of member PIDs and metadata without names.
+/// Simpler version of members_detailed for when you don't need member names.
+///
+/// ## Example
+/// ```gleam
+/// let followers = syn.members("JobDispatcherFollowers", "dispatchers")
+/// // Returns: [#(pid1, metadata1), #(pid2, metadata2)]
+/// ```
+pub fn members(
+  scope: String,
+  group: String,
+) -> List(#(Pid, metadata)) {
+  case syn_members_bridge(scope, group) {
+    SynMembersEmpty -> []
+
+    SynMembersList(members) -> {
+      list.map(members, fn(member) {
+        let #(_name, pid, meta_dyn) = member
+        #(pid, from_dynamic(meta_dyn))
+      })
+    }
+
+    SynMembersError(_) -> []
+  }
+}
+
 // Add is_member check
 pub fn is_member(scope: String, name: String, pid: Pid) -> Bool {
   case syn_is_member_bridge(scope, name, pid) {
