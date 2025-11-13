@@ -60,7 +60,13 @@ defmodule Glixir.LibCluster do
   # Rest stays the same...
   def start_link_fly(app_name) when is_binary(app_name) do
     app = app_name || System.get_env("FLY_APP_NAME", "app")
-    start_link(app, "dns_poll", 5_000, "#{app}.internal")
+
+    # Use region-specific DNS to cluster only within the same region
+    # This creates per-region syn clusters instead of one global cluster
+    region = System.get_env("FLY_REGION")
+    query = if region, do: "#{region}.#{app}.internal", else: "#{app}.internal"
+
+    start_link(app, "dns_poll", 5_000, query)
   end
 
   def start_link_local(app_name) when is_binary(app_name) do
