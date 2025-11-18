@@ -121,12 +121,7 @@ pub fn subscribe_with_registry_key(
   utils.debug_log_with_prefix(
     logging.Debug,
     "syn_pubsub",
-    "Subscribing to "
-      <> scope
-      <> "/"
-      <> group
-      <> " with key: "
-      <> registry_key,
+    "Subscribing to " <> scope <> "/" <> group <> " with key: " <> registry_key,
   )
 
   case

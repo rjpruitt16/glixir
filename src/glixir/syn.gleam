@@ -524,10 +524,7 @@ pub fn members_detailed(
 /// let followers = syn.members("JobDispatcherFollowers", "dispatchers")
 /// // Returns: [#(pid1, metadata1), #(pid2, metadata2)]
 /// ```
-pub fn members(
-  scope: String,
-  group: String,
-) -> List(#(Pid, metadata)) {
+pub fn members(scope: String, group: String) -> List(#(Pid, metadata)) {
   case syn_members_bridge(scope, group) {
     SynMembersEmpty -> []
 
